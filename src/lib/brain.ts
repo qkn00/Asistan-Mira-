@@ -14,7 +14,7 @@ export function detectEmotion(text: string): Emotion {
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
-function localReply(message: string, userName: string, persona: Persona): { reply: string; emotion: Emotion } {
+function localReply(message: string, userName: string, persona: Persona, history: Turn[] = []): { reply: string; emotion: Emotion } {
   let emotion = detectEmotion(message);
   const t = message.toLocaleLowerCase("tr-TR");
   const f = persona === "flirty";
@@ -96,8 +96,38 @@ function localReply(message: string, userName: string, persona: Persona): { repl
       ? "Geliyor patron 😄 Seni duyuyorum. Ama sen aslında benim sesimin doğal gelip gelmediğini de test ediyorsun, onu da anladım."
       : "Geliyor, seni duyuyorum. Bir de benim sesimin doğal gelip gelmediğini test ediyorsun, onu da anladım.";
   } else {
-    // Belirsiz mesajlarda aynı hazır cümleyi tekrar etme.
-    reply = "Ne dediğini yanlış anlamak istemiyorum. Bir cümle daha söyle, ona göre doğrudan cevap vereyim.";
+    // Yerel motor da mümkün olduğunca konuşmanın son turuna tutunsun.
+    // AI anahtarı yokken aynı "bir cümle daha söyle" kalıbına düşmemek için
+    // kısa onaylar ve bağlama dönen sorular ayrı ele alınır.
+    const lastUser = [...history].reverse().find((turn) => turn.role === "user")?.content?.trim() ?? "";
+    const lastAssistant = [...history].reverse().find((turn) => turn.role === "assistant")?.content?.trim() ?? "";
+
+    if (/^(tamam|peki|olur|aynen|evet|hı hı|hmm|hımm)$/i.test(t)) {
+      emotion = "happy";
+      if (lastAssistant) {
+        reply = f
+          ? "Tamam patron, oradan devam edelim. Ne kısmını yapmamı istiyorsun?"
+          : "Tamam, oradan devam edelim. Hangi kısmı yapalım?";
+      } else {
+        reply = f ? "Tamam patron, buradayım. Nereden başlayalım?" : "Tamam, buradayım. Nereden başlayalım?";
+      }
+    } else if (/^(devam et|devam|sürdür|kaldığımız yerden devam et)$/i.test(t)) {
+      emotion = "focused";
+      reply = lastUser
+        ? `Kaldığımız yerden devam edelim. Son konuştuğumuz konu “${lastUser.slice(0, 120)}” idi; hangi adımı şimdi ele alalım?`
+        : "Devam edelim. Şu an hangi konuyu sürdürüyoruz?";
+    } else if (/^(neden|niye|nasıl|nasıl yani|ne demek|hangisi|peki neden|peki nasıl)\??$/i.test(t) && lastAssistant) {
+      emotion = "focused";
+      reply = `Az önce söylediğim şeye göre cevaplayayım: “${lastAssistant.slice(0, 160)}” kısmını mı soruyorsun? Öyleyse onu netleştireyim.`;
+    } else if (lastAssistant) {
+      emotion = detectEmotion(lastAssistant);
+      reply = f
+        ? `Anladım patron. Bunu önceki söylediğim “${lastAssistant.slice(0, 120)}” kısmıyla bağlantılı olarak ele alıyorum; biraz daha netleştirirsen doğrudan oraya gireceğim.`
+        : `Anladım. Bunu önceki söylediğim “${lastAssistant.slice(0, 120)}” kısmıyla bağlantılı olarak ele alıyorum; biraz daha netleştirirsen doğrudan oraya gireceğim.`;
+    } else {
+      emotion = "focused";
+      reply = f ? "Tam olarak neyi kastettiğini yakalamaya çalışıyorum patron; bir sonraki cümlenle konuyu bağlayalım." : "Tam olarak neyi kastettiğini yakalamaya çalışıyorum; bir sonraki cümlenle konuyu bağlayalım.";
+    }
   }
   return { reply, emotion };
 }
@@ -110,7 +140,7 @@ export async function think(
   memoryContext = "(Henüz kayıtlı önemli hafıza yok.)",
 ): Promise<{ reply: string; emotion: Emotion }> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return localReply(message, userName, persona);
+  if (!key) return localReply(message, userName, persona, history);
 
   const style =
     persona === "flirty"
@@ -161,9 +191,9 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     const emotion: Emotion = ["happy", "surprised", "sad", "playful", "focused"].includes(parsed.emotion)
       ? parsed.emotion
       : detectEmotion(parsed.reply ?? "");
-    return { reply: String(parsed.reply ?? "").trim() || localReply(message, userName, persona).reply, emotion };
+    return { reply: String(parsed.reply ?? "").trim() || localReply(message, userName, persona, history).reply, emotion };
   } catch (e) {
     console.error("OpenAI error, falling back:", e);
-    return localReply(message, userName, persona);
+    return localReply(message, userName, persona, history);
   }
 }

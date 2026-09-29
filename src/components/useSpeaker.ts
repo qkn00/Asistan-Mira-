@@ -87,7 +87,7 @@ export function useSpeaker() {
         opts.onEnd?.();
       };
 
-      const rate = opts.rate ?? 1;
+      const rate = Math.min(2, Math.max(0.5, opts.rate ?? 1));
       const hasTTS = typeof window !== "undefined" && "speechSynthesis" in window;
 
       // Fallback timer drives words if boundary events are not fired by the voice

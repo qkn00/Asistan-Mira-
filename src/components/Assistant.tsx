@@ -146,6 +146,7 @@ export default function Assistant() {
         rate: Math.min(2, Math.max(0.5, voiceProfile.rate)),
         pitch: Math.min(2, Math.max(0.5, voiceProfile.pitch)),
         solMode: settings.solMode,
+        emotion: e,
         onEnd: done,
       });
     },

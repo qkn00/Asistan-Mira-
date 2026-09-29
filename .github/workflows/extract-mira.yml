@@ -1,0 +1,32 @@
+name: Extract Mira Phase 4
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    if: github.event.head_commit.message != 'Extract Mira Phase 4 project'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract Mira project
+        run: |
+          rm -rf /tmp/mira
+          mkdir -p /tmp/mira
+          unzip -o mira-phase4-complete.zip -d /tmp/mira
+          cp -R /tmp/mira/mira-phase3-4-work/. .
+
+      - name: Commit extracted project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Extract Mira Phase 4 project"
+          git push

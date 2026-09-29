@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { messages, operations } from "@/db/schema";
-import { desc, sql } from "drizzle-orm";
+import { contentItems, learningProgress, messages, operations, tasks, trends } from "@/db/schema";
+import { desc, eq, sql } from "drizzle-orm";
 import { think, detectEmotion } from "@/lib/brain";
 import { getSettings } from "@/lib/settings";
 import { getDailyReport, reportToSpeech } from "@/lib/report";
@@ -89,6 +89,7 @@ export async function POST(req: Request) {
 
   let recent: { role: "user" | "assistant"; content: string }[] = [];
   let memories: Awaited<ReturnType<typeof listImportantMemories>> = [];
+  let operationalContext = "";
 
   if (databaseAvailable) {
     try {
@@ -96,15 +97,28 @@ export async function POST(req: Request) {
         .reverse()
         .map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
       memories = await listImportantMemories(20);
+      const [pendingTasks, recentContent, activeLearning, recentTrends] = await Promise.all([
+        db.select().from(tasks).where(eq(tasks.status, "pending")).orderBy(desc(tasks.id)).limit(8),
+        db.select().from(contentItems).orderBy(desc(contentItems.updatedAt)).limit(8),
+        db.select().from(learningProgress).where(eq(learningProgress.status, "active")).orderBy(desc(learningProgress.updatedAt)).limit(8),
+        db.select().from(trends).orderBy(desc(trends.foundAt)).limit(8),
+      ]);
+      operationalContext = [
+        "GÖREVLER: " + (pendingTasks.length ? pendingTasks.map(x => x.title + (x.dueAt ? " (son tarih " + x.dueAt.toISOString() + ")" : "")).join(" | ") : "Bekleyen görev yok."),
+        "İÇERİK: " + (recentContent.length ? recentContent.map(x => x.title + " [" + x.platform + "/" + x.status + "]" + (x.url ? " " + x.url : "")).join(" | ") : "İçerik kaydı yok."),
+        "ÖĞRENME: " + (activeLearning.length ? activeLearning.map(x => x.topic + " (" + x.level + ", " + x.completedSteps + "/" + (x.totalSteps ?? "?") + ", son adım: " + (x.lastStep ?? "-") + ")").join(" | ") : "Aktif öğrenme kaydı yok."),
+        "TRENDLER: " + (recentTrends.length ? recentTrends.map(x => x.topic + (x.platform ? " [" + x.platform + "]" : "")).join(" | ") : "Trend kaydı yok."),
+      ].join("\n");
     } catch (error) {
       console.error("Mira context unavailable:", error);
       databaseAvailable = false;
     }
   }
 
-  const memoryContext = memories.length
-    ? memories.map((m) => `- ${m.key}: ${m.value}`).join("\n")
-    : "(Henüz kayıtlı önemli hafıza yok.)";
+  const memoryContext = [
+    memories.length ? memories.map((m) => "- " + m.key + ": " + m.value).join("\n") : "(Henüz kayıtlı önemli hafıza yok.)",
+    operationalContext ? "\nAKTİF İŞ DURUMU:\n" + operationalContext : "",
+  ].join("\n");
 
   const { reply, emotion } = await think(
     text,

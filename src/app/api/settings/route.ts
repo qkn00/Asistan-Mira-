@@ -14,6 +14,7 @@ const fallbackSettings = {
   voiceRate: 1,
   voicePitch: 1.15,
   persona: "flirty",
+  solMode: "close",
   glamour: true,
 };
 
@@ -39,6 +40,7 @@ export async function PATCH(req: Request) {
     patch.outfit = body.outfit;
   }
   if (body.persona === "sweet" || body.persona === "flirty") patch.persona = body.persona;
+  if (["sweet", "flirty", "serious", "excited", "close"].includes(body.solMode)) patch.solMode = body.solMode;
   if (typeof body.glamour === "boolean") patch.glamour = body.glamour;
   if (typeof body.voiceRate === "number") patch.voiceRate = Math.min(2, Math.max(0.5, body.voiceRate));
   if (typeof body.voicePitch === "number") patch.voicePitch = Math.min(2, Math.max(0.5, body.voicePitch));

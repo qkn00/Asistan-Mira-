@@ -20,6 +20,8 @@ export function useSpeaker() {
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const analyserDataRef = useRef<Uint8Array | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -83,6 +85,9 @@ export function useSpeaker() {
     }
     audioSourceRef.current?.disconnect();
     audioSourceRef.current = null;
+    try { analyserRef.current?.disconnect(); } catch {}
+    analyserRef.current = null;
+    analyserDataRef.current = null;
     stopLoop();
     setSpeaking(false);
     setWordIndex(-1);
@@ -143,7 +148,17 @@ export function useSpeaker() {
           const buffer = await ctx.decodeAudioData(audioData.slice(0));
           const source = ctx.createBufferSource();
           source.buffer = buffer;
-          source.connect(ctx.destination);
+          // Use the real decoded ElevenLabs waveform for mouth timing instead
+          // of a purely synthetic oscillator. This gives Mira audio-driven
+          // mouth movement while keeping the existing word subtitle sync.
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.72;
+          const data = new Uint8Array(analyser.fftSize);
+          source.connect(analyser);
+          analyser.connect(ctx.destination);
+          analyserRef.current = analyser;
+          analyserDataRef.current = data;
           audioSourceRef.current = source;
 
           let startedAt = performance.now();
@@ -163,7 +178,18 @@ export function useSpeaker() {
               const progress = Math.min(1, elapsed / durationEstimate);
               const idx = Math.min(words.length - 1, Math.floor(progress * words.length));
               setWord(idx);
-              targetRef.current = 0.48 + Math.abs(Math.sin(elapsed * 9)) * 0.42;
+
+              analyser.getByteTimeDomainData(data);
+              let sum = 0;
+              for (let i = 0; i < data.length; i++) {
+                const v = (data[i] - 128) / 128;
+                sum += v * v;
+              }
+              const rms = Math.sqrt(sum / data.length);
+              // Compress the RMS range so quiet consonants still produce
+              // visible articulation without making silence look like speech.
+              const speechLevel = Math.min(1, Math.max(0, (rms - 0.008) / 0.075));
+              targetRef.current = 0.08 + speechLevel * 0.92;
               wordStartRef.current = performance.now();
               rafRef.current = requestAnimationFrame(syncAudio);
             }

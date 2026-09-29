@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const fallbackSettings = {
   id: 1,
-  userName: "Gökhan",
+  userName: "patron",
   outfit: "sweater",
   voiceRate: 1,
   voicePitch: 1.15,
@@ -19,7 +19,8 @@ const fallbackSettings = {
 
 export async function GET() {
   try {
-    return NextResponse.json((await getSettings()) ?? fallbackSettings);
+    const current = (await getSettings()) ?? fallbackSettings;
+    return NextResponse.json(current.userName === "Gökhan" ? { ...current, userName: "patron" } : current);
   } catch (error) {
     console.error("Mira settings GET failed; using fallback:", error);
     return NextResponse.json(fallbackSettings);

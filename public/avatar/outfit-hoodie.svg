@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700">
 <defs><radialGradient id="g" cx="50%" cy="35%"><stop offset="0" stop-color="#4b214f"/><stop offset="1" stop-color="#120b1b"/></radialGradient><linearGradient id="h" x1="0" x2="1"><stop stop-color="#1a1022"/><stop offset=".5" stop-color="#3b1d43"/><stop offset="1" stop-color="#160d1e"/></linearGradient></defs>
 <rect width="600" height="700" rx="44" fill="url(#g)"/>
-<circle cx="300" cy="275" r="160" fill="#f0c3a4"/>
-<path d="M145 290C110 120 185 45 300 45s190 80 155 245c-25-85-80-125-155-125s-130 40-155 125z" fill="url(#h)"/>
-<path d="M180 300c-20 80-12 180 120 205 132-25 140-125 120-205-35 45-70 60-120 60s-85-15-120-60z" fill="#f0c3a4"/>
+<path d="M162 255C162 165 215 105 300 105C385 105 438 165 438 255C438 360 392 425 300 448C208 425 162 360 162 255Z" fill="#f0c3a4"/>
+<path d="M148 275C125 125 195 45 300 45C405 45 475 125 452 275C430 220 390 175 300 170C210 175 170 220 148 275Z" fill="url(#h)"/>
+
 <ellipse cx="245" cy="285" rx="13" ry="18" fill="#25152b"/><ellipse cx="355" cy="285" rx="13" ry="18" fill="#25152b"/>
 <path d="M230 250q25-18 50 0M320 250q25-18 50 0" fill="none" stroke="#3a2037" stroke-width="9" stroke-linecap="round"/>
 <path d="M270 350q30 22 60 0" fill="none" stroke="#9a426b" stroke-width="8" stroke-linecap="round"/>

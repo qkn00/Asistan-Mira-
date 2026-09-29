@@ -57,6 +57,7 @@ export default function Assistant() {
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoListenRef = useRef(true);
   const speechSupportedRef = useRef(false);
+  const welcomeSpokenRef = useRef(false);
   const startListeningRef = useRef<(() => boolean) | null>(null);
 
   // Load data
@@ -239,6 +240,16 @@ export default function Assistant() {
 
 
   useEffect(() => () => recRef.current?.stop(), []);
+
+  // Mira opens every session with the user's preferred address.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (welcomeSpokenRef.current) return;
+      welcomeSpokenRef.current = true;
+      say("Selam patron, nasılsın?", "happy");
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [say]);
 
   const updateSettings = async (patch: Partial<Settings>) => {
     setSettings((s) => ({ ...s, ...patch }));

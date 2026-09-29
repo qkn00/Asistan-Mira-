@@ -477,11 +477,6 @@ export default function Assistant() {
                 <div key={m.id} className={`fade-up flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl p-3 text-sm ${m.role === "user" ? "rounded-tr-sm bg-fuchsia-600/80" : "rounded-tl-sm bg-violet-900/70"}`}>
                     {m.content}
-                    {m.role === "assistant" && isEmotion(m.emotion) && (
-                      <button onClick={() => say(m.content, m.emotion as Emotion)} className="ml-2 text-xs text-white/60 hover:text-white" title="Tekrar söylet">
-                        {EMOTIONS[m.emotion].emoji} 🔊
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}

@@ -77,6 +77,19 @@ export const trends = pgTable("trends", {
   foundAt: timestamp("found_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const learningProgress = pgTable("learning_progress", {
+  id: serial("id").primaryKey(),
+  topic: text("topic").notNull(),
+  level: text("level").notNull().default("beginner"),
+  status: text("status").notNull().default("active"),
+  lastStep: text("last_step"),
+  notes: text("notes"),
+  completedSteps: integer("completed_steps").notNull().default(0),
+  totalSteps: integer("total_steps"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const memories = pgTable("memories", {
   id: serial("id").primaryKey(),
   key: text("key").notNull(),

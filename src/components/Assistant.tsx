@@ -5,7 +5,8 @@ import { EMOTIONS, OUTFITS, FLIRTY_EMOJIS, outfitSrc, isEmotion, type Emotion } 
 import { useSpeaker } from "./useSpeaker";
 
 type Msg = { id: number; role: string; content: string; emotion: string; createdAt: string };
-type Settings = { userName: string; outfit: string; voiceRate: number; voicePitch: number; persona: string; glamour: boolean };
+type SolMode = "sweet" | "flirty" | "serious" | "excited" | "close";
+type Settings = { userName: string; outfit: string; voiceRate: number; voicePitch: number; persona: string; solMode: SolMode; glamour: boolean };
 type Custom = { id: number; label: string };
 type Tab = "chat" | "wardrobe" | "emotions" | "settings";
 
@@ -36,6 +37,7 @@ export default function Assistant() {
     voiceRate: 1,
     voicePitch: 1.15,
     persona: "flirty",
+    solMode: "close",
     glamour: true,
   });
   const [customs, setCustoms] = useState<Custom[]>([]);
@@ -131,10 +133,14 @@ export default function Assistant() {
       // Give each personality a genuinely different speaking profile.
       // The user's slider remains the base value; personality adds the
       // characteristic delivery on top of it.
-      const voiceProfile =
-        settings.persona === "flirty"
-          ? { rate: settings.voiceRate * 0.94, pitch: settings.voicePitch * 1.10 }
-          : { rate: settings.voiceRate * 1.02, pitch: settings.voicePitch * 0.94 };
+      const solProfiles: Record<SolMode, { rate: number; pitch: number }> = {
+        sweet: { rate: 0.98, pitch: 1.05 },
+        flirty: { rate: 0.94, pitch: 1.10 },
+        serious: { rate: 0.98, pitch: 0.92 },
+        excited: { rate: 1.06, pitch: 1.08 },
+        close: { rate: 0.96, pitch: 1.01 },
+      };
+      const voiceProfile = solProfiles[settings.solMode] ?? solProfiles.close;
 
       speak(text, {
         rate: Math.min(2, Math.max(0.5, voiceProfile.rate)),
@@ -591,6 +597,26 @@ export default function Assistant() {
               <input type="range" min={0.5} max={2} step={0.05} value={settings.voicePitch}
                 onChange={(e) => updateSettings({ voicePitch: Number(e.target.value) })} className="mt-1 w-full accent-fuchsia-500" />
             </label>
+            <div>
+              <span className="text-white/70">Sol modu</span>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {([
+                  { id: "sweet", label: "🌸 Tatlı" },
+                  { id: "flirty", label: "💋 Flörtöz" },
+                  { id: "serious", label: "📋 Rapor" },
+                  { id: "excited", label: "⚡ Heyecanlı" },
+                  { id: "close", label: "🤍 Yakın" },
+                ] as { id: SolMode; label: string }[]).map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => updateSettings({ solMode: m.id })}
+                    className={`rounded-xl py-2 ${settings.solMode === m.id ? "bg-fuchsia-600" : "bg-white/10 hover:bg-white/20"}`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div>
               <span className="text-white/70">Kişilik</span>
               <div className="mt-1 grid grid-cols-2 gap-2">

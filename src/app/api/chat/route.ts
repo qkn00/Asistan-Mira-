@@ -10,7 +10,7 @@ import { listImportantMemories, remember } from "@/lib/memory";
 export const dynamic = "force-dynamic";
 
 const fallbackSettings = {
-  userName: "Gökhan",
+  userName: "patron",
   outfit: "sweater",
   voiceRate: 1,
   voicePitch: 1.15,
@@ -42,7 +42,8 @@ export async function POST(req: Request) {
   const text = typeof body.message === "string" ? body.message.trim().slice(0, 1000) : "";
   if (!text) return NextResponse.json({ error: "Mesaj boş olamaz" }, { status: 400 });
 
-  const s = await safeSettings();
+  const rawSettings = await safeSettings();
+  const s = rawSettings.userName === "Gökhan" ? { ...rawSettings, userName: "patron" } : rawSettings;
   const lower = text.toLocaleLowerCase("tr-TR");
 
   // The chat must remain usable even before Railway PostgreSQL is connected.

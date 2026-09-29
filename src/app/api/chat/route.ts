@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { messages, operations } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import { think, detectEmotion } from "@/lib/brain";
 import { getSettings } from "@/lib/settings";
 import { getDailyReport, reportToSpeech } from "@/lib/report";
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   // generic "connection problem" response.
   let databaseAvailable = true;
   try {
-    await db.execute({ getQuery: () => "select 1", queryChunks: [] } as never);
+    await db.execute(sql`select 1`);
   } catch {
     databaseAvailable = false;
   }

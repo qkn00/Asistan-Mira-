@@ -18,6 +18,8 @@ export function useSpeaker() {
   const rafRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -51,8 +53,36 @@ export function useSpeaker() {
     ampRef.current = 0;
   }, []);
 
+  const unlockAudio = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const w = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+    const Ctx = window.AudioContext ?? w.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      if (!audioContextRef.current) audioContextRef.current = new Ctx();
+      if (audioContextRef.current.state === "suspended") void audioContextRef.current.resume();
+      if ("speechSynthesis" in window) window.speechSynthesis.resume();
+    } catch {
+      // Browser may reject audio initialization until a later user gesture.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onUserGesture = () => unlockAudio();
+    window.addEventListener("pointerdown", onUserGesture, { passive: true });
+    return () => window.removeEventListener("pointerdown", onUserGesture);
+  }, [unlockAudio]);
+
   const stop = useCallback(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    try {
+      audioSourceRef.current?.stop();
+    } catch {
+      // Source may already have ended.
+    }
+    audioSourceRef.current?.disconnect();
+    audioSourceRef.current = null;
     stopLoop();
     setSpeaking(false);
     setWordIndex(-1);
@@ -61,6 +91,7 @@ export function useSpeaker() {
   const speak = useCallback(
     async (text: string, opts: { rate?: number; pitch?: number; solMode?: "sweet" | "flirty" | "serious" | "excited" | "close"; onEnd?: () => void } = {}) => {
       stop();
+      unlockAudio();
       const words = text.split(/\s+/).filter(Boolean);
       const wordStarts: number[] = [];
       let acc = 0;
@@ -100,16 +131,30 @@ export function useSpeaker() {
         });
 
         if (response.ok && response.headers.get("content-type")?.includes("audio")) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.preload = "auto";
+          const ctx = audioContextRef.current;
+          if (!ctx) throw new Error("AudioContext hazır değil");
+          if (ctx.state === "suspended") await ctx.resume();
+
+          const audioData = await response.arrayBuffer();
+          const buffer = await ctx.decodeAudioData(audioData.slice(0));
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          audioSourceRef.current = source;
 
           let startedAt = performance.now();
-          const durationEstimate = Math.max(0.35, text.length * 0.055 / rate);
+          const durationEstimate = Math.max(0.35, buffer.duration || text.length * 0.055 / rate);
+
+          source.onended = () => {
+            if (audioSourceRef.current === source) audioSourceRef.current = null;
+            finish();
+          };
+
+          source.start(0);
+          startedAt = performance.now();
 
           const syncAudio = () => {
-            if (!audio.paused && !audio.ended) {
+            if (audioSourceRef.current === source) {
               const elapsed = (performance.now() - startedAt) / 1000;
               const progress = Math.min(1, elapsed / durationEstimate);
               const idx = Math.min(words.length - 1, Math.floor(progress * words.length));
@@ -119,21 +164,7 @@ export function useSpeaker() {
               rafRef.current = requestAnimationFrame(syncAudio);
             }
           };
-
-          audio.onplay = () => {
-            startedAt = performance.now();
-            rafRef.current = requestAnimationFrame(syncAudio);
-          };
-          audio.onended = () => {
-            URL.revokeObjectURL(url);
-            finish();
-          };
-          audio.onerror = () => {
-            URL.revokeObjectURL(url);
-            finish();
-          };
-
-          await audio.play();
+          rafRef.current = requestAnimationFrame(syncAudio);
           return;
         }
       } catch {
@@ -188,7 +219,7 @@ export function useSpeaker() {
         finish();
       }
     },
-    [loop, stop, stopLoop],
+    [loop, stop, stopLoop, unlockAudio],
   );
 
   useEffect(() => stop, [stop]);

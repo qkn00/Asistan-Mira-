@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const ELEVEN_API = "https://api.elevenlabs.io/v1/text-to-speech";
+// Mira'nın varsayılan sesi: Pelin Yıldız.
+const DEFAULT_VOICE_ID = "FvxJI7vwUDkTkEOO7nd7";
 
 type SolMode = "sweet" | "flirty" | "serious" | "excited" | "close";
 type Emotion = "happy" | "surprised" | "sad" | "playful" | "focused";
@@ -23,7 +25,7 @@ const profiles: Record<SolMode, {
 
 export async function POST(req: Request) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID;
+  const voiceId = process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID;
 
   if (!apiKey || !voiceId) {
     return NextResponse.json(

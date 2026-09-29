@@ -59,7 +59,7 @@ export function useSpeaker() {
   }, [stopLoop]);
 
   const speak = useCallback(
-    (text: string, opts: { rate?: number; pitch?: number; onEnd?: () => void } = {}) => {
+    (text: string, opts: { rate?: number; pitch?: number; solMode?: "sweet" | "flirty" | "serious" | "excited" | "close"; onEnd?: () => void } = {}) => {
       stop();
       const words = text.split(/\s+/).filter(Boolean);
       const wordStarts: number[] = [];
@@ -90,7 +90,61 @@ export function useSpeaker() {
       const rate = Math.min(2, Math.max(0.5, opts.rate ?? 1));
       const hasTTS = typeof window !== "undefined" && "speechSynthesis" in window;
 
-      // Fallback timer drives words if boundary events are not fired by the voice
+      // ElevenLabs is Mira's primary voice. If it is not configured or fails,
+      // keep the assistant usable with the iPhone/browser Turkish voice.
+      try {
+        const response = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, solMode: opts.solMode ?? "close" }),
+        });
+
+        if (response.ok && response.headers.get("content-type")?.includes("audio")) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.preload = "auto";
+
+          let startedAt = performance.now();
+          const durationEstimate = Math.max(0.35, text.length * 0.055 / rate);
+
+          const syncAudio = () => {
+            if (!audio.paused && !audio.ended) {
+              const elapsed = (performance.now() - startedAt) / 1000;
+              const progress = Math.min(1, elapsed / durationEstimate);
+              const idx = Math.min(words.length - 1, Math.floor(progress * words.length));
+              setWord(idx);
+              targetRef.current = 0.48 + Math.abs(Math.sin(elapsed * 9)) * 0.42;
+              wordStartRef.current = performance.now();
+              rafRef.current = requestAnimationFrame(syncAudio);
+            }
+          };
+
+          audio.onplay = () => {
+            startedAt = performance.now();
+            rafRef.current = requestAnimationFrame(syncAudio);
+          };
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            finish();
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(url);
+            finish();
+          };
+
+          await audio.play();
+          return;
+        }
+      } catch {
+        // Fall through to browser TTS.
+      }
+
+      if (!hasTTS) {
+        finish();
+        return;
+      }
+
       let gotBoundary = false;
       let fallbackIdx = 0;
       const perWordMs = 330 / rate;
@@ -99,23 +153,21 @@ export function useSpeaker() {
         if (gotBoundary) return;
         fallbackIdx++;
         if (fallbackIdx >= words.length) {
-          if (!hasTTS) finish();
-          else targetRef.current = 0.2;
+          targetRef.current = 0.2;
           return;
         }
         setWord(fallbackIdx);
       }, perWordMs);
 
-      if (!hasTTS) return;
-
       let u: SpeechSynthesisUtterance;
       try {
         u = new SpeechSynthesisUtterance(text);
         u.lang = "tr-TR";
-        if (voiceRef.current) u.voice = voiceRef.current;
+        const voices = window.speechSynthesis.getVoices();
+        const tr = voices.filter((v) => v.lang.toLowerCase().startsWith("tr"));
+        const voice = tr.find((v) => /female|kadın|yelda|emel|seda|filiz/i.test(v.name)) ?? tr[0];
+        if (voice) u.voice = voice;
       } catch {
-        // Safari can reject an invalid native speech parameter. Retry with
-        // the browser defaults instead of exposing an English DOM error.
         u = new SpeechSynthesisUtterance(text);
         u.lang = "tr-TR";
       }
@@ -133,7 +185,6 @@ export function useSpeaker() {
       try {
         window.speechSynthesis.speak(u);
       } catch {
-        // Keep the UI usable if iOS rejects the native voice synchronously.
         finish();
       }
     },

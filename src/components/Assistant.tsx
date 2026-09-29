@@ -50,6 +50,7 @@ export default function Assistant() {
   const [listening, setListening] = useState(false);
   const [subtitle, setSubtitle] = useState("");
   const [muted, setMuted] = useState(false);
+  const [voiceReady, setVoiceReady] = useState<boolean | null>(null);
   const { speak, stop, speaking, wordIndex, ampRef } = useSpeaker();
 
   const faceRef = useRef<HTMLDivElement>(null);
@@ -73,6 +74,7 @@ export default function Assistant() {
     }).catch(() => {});
     fetch("/api/chat").then((r) => r.json()).then((d) => Array.isArray(d) && setMsgs(d)).catch(() => {});
     fetch("/api/outfits").then((r) => r.json()).then((d) => Array.isArray(d) && setCustoms(d)).catch(() => {});
+    fetch("/api/tts/status").then((r) => r.json()).then((d) => setVoiceReady(d?.configured === true)).catch(() => setVoiceReady(false));
   }, []);
 
   useEffect(() => {
@@ -643,8 +645,17 @@ export default function Assistant() {
               className="w-full rounded-xl bg-violet-600 py-2 font-medium hover:bg-violet-500">
               🔊 Sesi test et
             </button>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${voiceReady === true ? "bg-green-400" : voiceReady === false ? "bg-amber-400" : "bg-white/40"}`} />
+                <span>{voiceReady === true ? "ElevenLabs sesi bağlı" : voiceReady === false ? "Tarayıcı sesi aktif — ElevenLabs bekleniyor" : "Ses durumu kontrol ediliyor..."}</span>
+              </div>
+              {voiceReady === false && (
+                <p className="mt-1 text-white/50">Railway değişkenlerine ELEVENLABS_API_KEY ve ELEVENLABS_VOICE_ID eklendiğinde Mira otomatik olarak ElevenLabs sesine geçer.</p>
+              )}
+            </div>
             <p className="text-xs text-white/50">
-              İpucu: Sunucuda OPENAI_API_KEY tanımlarsan asistan yapay zekâ ile cevap verir; tanımlı değilse yerleşik Türkçe sohbet motoru çalışır.
+              İpucu: OPENAI_API_KEY tanımlıysa Mira yapay zekâ ile cevap verir; tanımlı değilse yerleşik Türkçe sohbet motoru çalışır.
             </p>
           </div>
         )}

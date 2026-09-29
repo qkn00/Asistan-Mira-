@@ -25,7 +25,8 @@
 4. `n8n/mira-automation-orchestrator.json` import et ve aktif et.
 5. n8n'de `MIRA_BASE_URL` ve `MIRA_N8N_SECRET` tanımla.
 6. YouTube/TikTok OAuth ve yayınlama workflow'larını ayrıca bağla.
-7. Gerçek yayın sonucu geldiğinde `/api/content/publish-result` ile kaydet.
+7. Pipeline için n8n şu güvenli uçları kullanır: `POST /api/automation/pipeline/claim` ile sıradaki içeriği alır; her aşama sonunda `POST /api/automation/pipeline/result` ile `research → script → voice → video → publish → report` sonucunu geri yazar. Yayın sonucu ayrıca `/api/content/publish-result` ile kaydedilebilir.
+8. Gerçek YouTube/TikTok OAuth ve Creatomate bağlantıları n8n tarafında sağlandığında uçtan uca yayın testi yapılır; Mira bu sonucun kaydını DB'de tutar.
 
 ## Test notu
 Bu çalışma ortamında npm registry erişimi zaman aşımına uğradığı için tam `next build` doğrulanamadı. JSON workflow'ları parse edilerek doğrulandı ve kaynaklarda şüpheli placeholder/syntax izi tarandı. Gerçek deployment üzerinde `npm install`, `npm run typecheck` ve `npm run build` çalıştırılmalıdır.

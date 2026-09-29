@@ -82,15 +82,22 @@ function localReply(message: string, userName: string, persona: Persona): { repl
     reply = f
       ? "Hâlâ öyle geliyorsa haklısın 😅 Biraz fazla düzgün ve hazır cevap vermişim. Dur, kalıpları bırakayım; bundan sonra ne dediğine gerçekten cevap vereyim."
       : "Hâlâ öyle geliyorsa haklısın. Biraz fazla hazır cevap vermişim; bundan sonra söylediğin şeye doğrudan karşılık vereceğim.";
+  } else if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|kendini tanıt|adın ne)/.test(t)) {
+    emotion = "focused";
+    reply = f
+      ? `Ben Mira'yım ${userName}. Bu sistemde seninle konuşan, işlerini ve otomasyonunu takip etmek için geliştirdiğimiz dijital asistanım. Şu an burada sohbet, öğretme ve yaptığımız işleri takip etme tarafında çalışıyorum.`
+      : `Ben Mira'yım ${userName}. Seninle konuşan, sana öğretmek ve yaptığımız işleri takip etmek için geliştirdiğimiz dijital asistanım.`;
+  } else if (/(otomasyon lazım|otomasyon istiyorum|otomasyon yap|otomasyon kur)/.test(t)) {
+    emotion = "focused";
+    reply = `Tamam ${userName}, otomasyon istiyorsun. Ne yapmak istediğini söyle; mevcut Mira sistemine göre nereden başlayacağımızı netleştirip ilerleyelim.`;
   } else if (/(sesim geliyor|ses geliyor|duyuyor musun|beni duyuyor)/.test(t)) {
     emotion = "happy";
     reply = f
       ? "Geliyor patron 😄 Seni duyuyorum. Ama sen aslında benim sesimin doğal gelip gelmediğini de test ediyorsun, onu da anladım."
       : "Geliyor, seni duyuyorum. Bir de benim sesimin doğal gelip gelmediğini test ediyorsun, onu da anladım.";
   } else {
-    reply = f
-      ? "Hmm... bunu biraz açsana, ne demek istediğini merak ettim."
-      : "Hmm... bunu biraz açar mısın? Ne demek istediğini merak ettim.";
+    // Belirsiz mesajlarda aynı hazır cümleyi tekrar etme.
+    reply = "Ne dediğini yanlış anlamak istemiyorum. Bir cümle daha söyle, ona göre doğrudan cevap vereyim.";
   }
   return { reply, emotion };
 }

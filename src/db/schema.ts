@@ -15,6 +15,7 @@ export const settings = pgTable("settings", {
   voiceRate: real("voice_rate").notNull().default(1),
   voicePitch: real("voice_pitch").notNull().default(1.15),
   persona: text("persona").notNull().default("flirty"),
+  solMode: text("sol_mode").notNull().default("close"),
   glamour: boolean("glamour").notNull().default(true),
 });
 

@@ -59,7 +59,7 @@ export function useSpeaker() {
   }, [stopLoop]);
 
   const speak = useCallback(
-    (text: string, opts: { rate?: number; pitch?: number; solMode?: "sweet" | "flirty" | "serious" | "excited" | "close"; onEnd?: () => void } = {}) => {
+    async (text: string, opts: { rate?: number; pitch?: number; solMode?: "sweet" | "flirty" | "serious" | "excited" | "close"; onEnd?: () => void } = {}) => {
       stop();
       const words = text.split(/\s+/).filter(Boolean);
       const wordStarts: number[] = [];

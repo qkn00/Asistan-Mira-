@@ -31,7 +31,7 @@ const NAV: { id: Tab; label: string; icon: string }[] = [
 export default function Assistant() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [settings, setSettings] = useState<Settings>({
-    userName: "Gökhan",
+    userName: "patron",
     outfit: "sweater",
     voiceRate: 1,
     voicePitch: 1.15,
@@ -61,7 +61,13 @@ export default function Assistant() {
 
   // Load data
   useEffect(() => {
-    fetch("/api/settings").then((r) => r.json()).then(setSettings).catch(() => {});
+    fetch("/api/settings").then((r) => r.json()).then((data) => {
+      const next = data?.userName === "Gökhan" ? { ...data, userName: "patron" } : data;
+      setSettings(next);
+      if (data?.userName === "Gökhan") {
+        fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userName: "patron" }) }).catch(() => {});
+      }
+    }).catch(() => {});
     fetch("/api/chat").then((r) => r.json()).then((d) => Array.isArray(d) && setMsgs(d)).catch(() => {});
     fetch("/api/outfits").then((r) => r.json()).then((d) => Array.isArray(d) && setCustoms(d)).catch(() => {});
   }, []);
@@ -444,8 +450,8 @@ export default function Assistant() {
               {msgs.length === 0 && (
                 <div className="fade-up rounded-2xl rounded-tl-sm bg-violet-900/60 p-3 text-sm">
                   {settings.persona === "flirty"
-                    ? <>Selam {settings.userName}... 💋 Seni bekliyordum. Yaz ya da mikrofona bas, konuşalım. Bu akşam ne giymemi istersin? Gardıroba bir bak 😉</>
-                    : <>Merhaba {settings.userName}! 😊 Benimle yazarak ya da mikrofona basarak konuşabilirsin. Konuşurken sesim kelimelerine eşlik edecek, duygularım yüzüme yansıyacak.</>}
+                    ? <>Selam patron... Nasılsın? 💋 Seni bekliyordum. Yaz ya da mikrofona bas, konuşalım. Bu akşam ne giymemi istersin? Gardıroba bir bak 😉</>
+                    : <>Selam patron! Nasılsın? 😊 Benimle yazarak ya da mikrofona basarak konuşabilirsin. Konuşurken sesim kelimelerine eşlik edecek, duygularım yüzüme yansıyacak.</>}
                 </div>
               )}
               {msgs.map((m) => (
@@ -599,7 +605,7 @@ export default function Assistant() {
               <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} className="accent-fuchsia-500" />
               Sessiz mod (sadece altyazı)
             </label>
-            <button onClick={() => say(`Merhaba ${settings.userName}! Sesimi test ediyoruz. Nasıl olmuşum?`, "playful")}
+            <button onClick={() => say("Selam patron! Sesimi test ediyoruz. Nasıl olmuşum?", "playful")}
               className="w-full rounded-xl bg-violet-600 py-2 font-medium hover:bg-violet-500">
               🔊 Sesi test et
             </button>

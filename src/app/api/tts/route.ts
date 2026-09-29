@@ -11,12 +11,13 @@ const profiles: Record<SolMode, {
   similarity_boost: number;
   style: number;
   speed: number;
+  tag: string;
 }> = {
-  sweet:   { stability: 0.48, similarity_boost: 0.82, style: 0.10, speed: 0.98 },
-  flirty:  { stability: 0.38, similarity_boost: 0.84, style: 0.18, speed: 0.96 },
-  serious: { stability: 0.68, similarity_boost: 0.86, style: 0.02, speed: 0.98 },
-  excited: { stability: 0.32, similarity_boost: 0.82, style: 0.22, speed: 1.06 },
-  close:   { stability: 0.52, similarity_boost: 0.84, style: 0.08, speed: 0.97 },
+  sweet:   { stability: 0.42, similarity_boost: 0.84, style: 0.18, speed: 0.98, tag: "[warmly]" },
+  flirty:  { stability: 0.34, similarity_boost: 0.84, style: 0.28, speed: 0.97, tag: "[mischievously]" },
+  serious: { stability: 0.60, similarity_boost: 0.88, style: 0.06, speed: 0.98, tag: "[serious]" },
+  excited: { stability: 0.30, similarity_boost: 0.82, style: 0.32, speed: 1.05, tag: "[excited]" },
+  close:   { stability: 0.46, similarity_boost: 0.85, style: 0.16, speed: 0.97, tag: "[softly]" },
 };
 
 export async function POST(req: Request) {
@@ -38,6 +39,10 @@ export async function POST(req: Request) {
   if (text.length > 5000) return NextResponse.json({ error: "Metin çok uzun" }, { status: 413 });
 
   const p = profiles[mode];
+  const model = process.env.ELEVENLABS_MODEL || "eleven_v3";
+  // v3 gets a short performance direction instead of trying to fake emotion
+  // with pitch/rate alone. Keep user-visible text free of these tags.
+  const ttsText = model === "eleven_v3" ? `${p.tag} ${text}` : text;
 
   try {
     const response = await fetch(
@@ -50,10 +55,16 @@ export async function POST(req: Request) {
           Accept: "audio/mpeg",
         },
         body: JSON.stringify({
-          text,
-          model_id: process.env.ELEVENLABS_MODEL || "eleven_flash_v2_5",
-          voice_settings: p,
-          ...(process.env.ELEVENLABS_MODEL === "eleven_multilingual_v2" ? {} : { language_code: "tr" }),
+          text: ttsText,
+          model_id: model,
+          voice_settings: {
+            stability: p.stability,
+            similarity_boost: p.similarity_boost,
+            style: p.style,
+            speed: p.speed,
+            use_speaker_boost: true,
+          },
+          language_code: "tr",
         }),
         cache: "no-store",
       },

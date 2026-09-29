@@ -1,0 +1,93 @@
+{
+  "name": "Mira - Background Operations",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "minutes", "minutesInterval": 15}]}},
+      "id": "1",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-720, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.MIRA_BASE_URL + '/api/tasks?status=pending&dueBefore=' + encodeURIComponent(new Date().toISOString())}}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-mira-key", "value": "={{$env.MIRA_N8N_SECRET}}"}]},
+        "options": {}
+      },
+      "id": "2",
+      "name": "Read Due Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-480, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.MIRA_BASE_URL + '/api/trends?status=new'}}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-mira-key", "value": "={{$env.MIRA_N8N_SECRET}}"}]},
+        "options": {}
+      },
+      "id": "3",
+      "name": "Read New Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, 160]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.MIRA_BASE_URL + '/api/content?status=draft'}}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-mira-key", "value": "={{$env.MIRA_N8N_SECRET}}"}]},
+        "options": {}
+      },
+      "id": "4",
+      "name": "Read Draft Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, -160]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.MIRA_BASE_URL + '/api/report/daily'}}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-mira-key", "value": "={{$env.MIRA_N8N_SECRET}}"}]},
+        "options": {}
+      },
+      "id": "5",
+      "name": "Read Daily Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.MIRA_BASE_URL + '/api/n8n/webhook'}}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-mira-key", "value": "={{$env.MIRA_N8N_SECRET}}"}]},
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\"type\":\"operation\",\"action\":\"background_check\",\"summary\":\"Mira arka plan kontrolü tamamlandı\",\"status\":\"success\",\"metadata\":{\"checkedAt\":new Date().toISOString()}}",
+        "options": {}
+      },
+      "id": "6",
+      "name": "Log Background Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {"main": [[{"node": "Read Due Tasks", "type": "main", "index": 0},{"node": "Read New Trends", "type": "main", "index": 0},{"node": "Read Draft Content", "type": "main", "index": 0},{"node": "Read Daily Report", "type": "main", "index": 0}]]},
+    "Read Daily Report": {"main": [[{"node": "Log Background Check", "type": "main", "index": 0}] ]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "mira-phase3-4"
+}

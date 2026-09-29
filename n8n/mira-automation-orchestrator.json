@@ -1,0 +1,62 @@
+{
+  "name": "Mira - Automation Orchestrator",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "minutes", "minutesInterval": 15}]}},
+      "id": "1",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-520, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.MIRA_BASE_URL + '/api/automation/orchestrate'}}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-mira-key", "value": "={{$env.MIRA_N8N_SECRET}}"}]},
+        "options": {}
+      },
+      "id": "2",
+      "name": "Get Mira Automation Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-260, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nreturn [{ json: { checkedAt: d.checkedAt, operationId: d.operationId, actionCount: d.actions?.length ?? 0, dueTaskCount: d.queues?.dueTasks?.length ?? 0, trendCount: d.queues?.newTrends?.length ?? 0, draftCount: d.queues?.draftContent?.length ?? 0, report: d.report } }];"
+      },
+      "id": "3",
+      "name": "Prepare Automation Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.MIRA_BASE_URL + '/api/n8n/webhook'}}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "x-mira-key", "value": "={{$env.MIRA_N8N_SECRET}}"}]},
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\"type\":\"operation\",\"action\":\"automation_cycle\",\"summary\":\"Mira otomasyon kuyruğu tarandı\",\"status\":\"success\",\"metadata\":$json}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Log Automation Cycle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {"main": [[{"node": "Get Mira Automation Queue", "type": "main", "index": 0}]]},
+    "Get Mira Automation Queue": {"main": [[{"node": "Prepare Automation Summary", "type": "main", "index": 0}]]},
+    "Prepare Automation Summary": {"main": [[{"node": "Log Automation Cycle", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "mira-phase4-automation"
+}

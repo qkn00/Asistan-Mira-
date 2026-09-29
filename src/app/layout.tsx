@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mira AI Assistant",
-  description: "Advanced AI-powered digital assistant with automation and intelligence",
+  title: "Bilgi Dozu • Dijital Asistan",
+  description: "Konuşan, duygularını yüzüne yansıtan kişisel dijital asistan.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="tr">
+      <body className="bg-[#0b0718] text-white antialiased">{children}</body>
     </html>
   );
 }

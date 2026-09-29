@@ -1,13 +1,55 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+.glass {
+  background: rgba(17, 12, 38, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(167, 139, 250, 0.22);
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica
-    Neue', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@keyframes breathe {
+  0%, 100% { transform: scale(1.02) translateY(0); }
+  50% { transform: scale(1.03) translateY(-3px); }
+}
+.breathe { animation: breathe 6s ease-in-out infinite; }
+
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.6); }
+  100% { box-shadow: 0 0 0 22px rgba(168, 85, 247, 0); }
+}
+.pulse-ring { animation: pulseRing 1.3s ease-out infinite; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.35s ease-out both; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* Glamour look */
+@keyframes glamShift {
+  0%, 100% { opacity: 0.55; background-position: 0% 0%; }
+  50% { opacity: 0.8; background-position: 100% 100%; }
+}
+.glam-glow {
+  background:
+    radial-gradient(ellipse 60% 45% at 20% 15%, rgba(255, 120, 200, 0.22), transparent 70%),
+    radial-gradient(ellipse 55% 50% at 85% 80%, rgba(168, 85, 247, 0.22), transparent 70%),
+    radial-gradient(ellipse 40% 35% at 50% 40%, rgba(255, 200, 170, 0.10), transparent 70%);
+  background-size: 140% 140%;
+  animation: glamShift 7s ease-in-out infinite;
+}
+
+@keyframes floatHeart {
+  0% { transform: translateY(0) scale(0.6) rotate(0deg); opacity: 0; }
+  15% { opacity: 0.95; }
+  100% { transform: translateY(-85vh) scale(1.15) rotate(20deg); opacity: 0; }
+}
+.float-heart {
+  animation-name: floatHeart;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.8));
 }

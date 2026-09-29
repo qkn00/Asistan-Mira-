@@ -1,0 +1,12 @@
+{
+  "name": "Mira - Background Operations Template",
+  "nodes": [
+    {"parameters":{"rule":{"interval":[{"field":"hours","hoursInterval":1}]}},"id":"1","name":"Hourly Trigger","type":"n8n-nodes-base.scheduleTrigger","typeVersion":1.2,"position":[-460,0]},
+    {"parameters":{"method":"GET","url":"={{$env.MIRA_BASE_URL + '/api/report/daily'}}","sendHeaders":true,"headerParameters":{"parameters":[{"name":"x-mira-key","value":"={{$env.MIRA_N8N_SECRET}}"}]},"options":{}},"id":"2","name":"Read Mira Daily State","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[-180,0]},
+    {"parameters":{"method":"POST","url":"={{$env.MIRA_BASE_URL + '/api/n8n/webhook'}}","sendHeaders":true,"headerParameters":{"parameters":[{"name":"x-mira-key","value":"={{$env.MIRA_N8N_SECRET}}"}]},"sendBody":true,"contentType":"json","jsonBody":"={\"type\":\"operation\",\"action\":\"background_check\",\"summary\":\"n8n arka plan kontrolü tamamlandı\",\"status\":\"success\"}","options":{}},"id":"3","name":"Log Background Check","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[100,0]}
+  ],
+  "connections":{"Hourly Trigger":{"main":[[{"node":"Read Mira Daily State","type":"main","index":0}]]},"Read Mira Daily State":{"main":[[{"node":"Log Background Check","type":"main","index":0}]]}},
+  "active":false,
+  "settings":{"executionOrder":"v1"},
+  "versionId":"mira-phase3-4"
+}

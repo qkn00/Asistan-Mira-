@@ -120,7 +120,20 @@ export default function Assistant() {
         setTimeout(done, Math.max(2000, text.length * 60));
         return;
       }
-      speak(text, { rate: settings.voiceRate, pitch: settings.voicePitch, onEnd: done });
+
+      // Give each personality a genuinely different speaking profile.
+      // The user's slider remains the base value; personality adds the
+      // characteristic delivery on top of it.
+      const voiceProfile =
+        settings.persona === "flirty"
+          ? { rate: settings.voiceRate * 0.94, pitch: settings.voicePitch * 1.10 }
+          : { rate: settings.voiceRate * 1.02, pitch: settings.voicePitch * 0.94 };
+
+      speak(text, {
+        rate: Math.min(2, Math.max(0.5, voiceProfile.rate)),
+        pitch: Math.min(2, Math.max(0.5, voiceProfile.pitch)),
+        onEnd: done,
+      });
     },
     [muted, settings.voicePitch, settings.voiceRate, showEmotion, speak],
   );
@@ -146,12 +159,13 @@ export default function Assistant() {
         setMsgs((m) => [...m.filter((x) => x.id !== temp.id), data.user, data.assistant]);
         say(data.assistant.content, isEmotion(data.assistant.emotion) ? data.assistant.emotion : "happy");
       } catch {
+        const errorText = "Bir bağlantı sorunu oldu, tekrar dener misin?";
         showEmotion("sad", 3000);
         setMsgs((m) => [
           ...m,
-          { id: -Date.now() - 1, role: "assistant", content: "Bir bağlantı sorunu oldu, tekrar dener misin?", emotion: "sad", createdAt: new Date().toISOString() },
+          { id: -Date.now() - 1, role: "assistant", content: errorText, emotion: "sad", createdAt: new Date().toISOString() },
         ]);
-        if (autoListenRef.current) setTimeout(() => startListeningRef.current?.(), 700);
+        say(errorText, "sad");
       } finally {
         setThinking(false);
       }
@@ -248,7 +262,9 @@ export default function Assistant() {
       setCustoms((c) => [data, ...c]);
       changeOutfit(`custom-${data.id}`);
     } catch (e) {
-      say(e instanceof Error && e.message ? e.message : "Görsel yüklenemedi", "sad");
+      console.error("Mira outfit upload failed:", e);
+      // Never expose Safari's English DOMException to the user.
+      say("Avatar görselini yükleyemedim. Görseli tekrar seçip deneyelim.", "sad");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";

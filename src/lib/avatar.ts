@@ -2,8 +2,6 @@ export type Emotion = "happy" | "surprised" | "sad" | "playful" | "focused";
 
 export const OUTFITS = [
   { id: "sweater", label: "Krem Kazak", emoji: "🧶", src: "/avatar/outfit-sweater.svg" },
-  { id: "hoodie", label: "Lila Hoodie", emoji: "💜", src: "/avatar/outfit-hoodie.svg" },
-  { id: "blazer", label: "İş Şıklığı", emoji: "💼", src: "/avatar/outfit-blazer.svg" },
   { id: "evening", label: "Gece Elbisesi", emoji: "🍷", src: "/avatar/outfit-evening.svg" },
   { id: "sport", label: "Spor", emoji: "🏃‍♀️", src: "/avatar/outfit-sport.svg" },
   { id: "denim", label: "Kot Ceket", emoji: "👖", src: "/avatar/outfit-denim.svg" },

@@ -89,7 +89,7 @@ export function useSpeaker() {
   }, [stopLoop]);
 
   const speak = useCallback(
-    async (text: string, opts: { rate?: number; pitch?: number; solMode?: "sweet" | "flirty" | "serious" | "excited" | "close"; onEnd?: () => void } = {}) => {
+    async (text: string, opts: { rate?: number; pitch?: number; solMode?: "sweet" | "flirty" | "serious" | "excited" | "close"; emotion?: "happy" | "surprised" | "sad" | "playful" | "focused"; onEnd?: () => void } = {}) => {
       stop();
       unlockAudio();
       const words = text.split(/\s+/).filter(Boolean);
@@ -127,7 +127,11 @@ export function useSpeaker() {
         const response = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, solMode: opts.solMode ?? "close" }),
+          body: JSON.stringify({
+            text,
+            solMode: opts.solMode ?? "close",
+            emotion: opts.emotion ?? "happy",
+          }),
         });
 
         if (response.ok && response.headers.get("content-type")?.includes("audio")) {

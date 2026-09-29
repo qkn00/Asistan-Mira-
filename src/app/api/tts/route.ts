@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 const ELEVEN_API = "https://api.elevenlabs.io/v1/text-to-speech";
 
 type SolMode = "sweet" | "flirty" | "serious" | "excited" | "close";
+type Emotion = "happy" | "surprised" | "sad" | "playful" | "focused";
 
 const profiles: Record<SolMode, {
   stability: number;
@@ -32,17 +33,38 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const text = typeof body.text === "string" ? body.text.trim() : "";
+  const rawText = typeof body.text === "string" ? body.text.trim() : "";
   const mode = (body.solMode as SolMode) in profiles ? (body.solMode as SolMode) : "close";
+  const emotion = (body.emotion as Emotion) in { happy: 1, surprised: 1, sad: 1, playful: 1, focused: 1 }
+    ? (body.emotion as Emotion)
+    : "happy";
+  const text = rawText
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
   if (!text) return NextResponse.json({ error: "Metin gerekli" }, { status: 400 });
   if (text.length > 5000) return NextResponse.json({ error: "Metin çok uzun" }, { status: 413 });
 
   const p = profiles[mode];
   const model = process.env.ELEVENLABS_MODEL || "eleven_v3";
-  // v3 gets a short performance direction instead of trying to fake emotion
-  // with pitch/rate alone. Keep user-visible text free of these tags.
-  const ttsText = model === "eleven_v3" ? `${p.tag} ${text}` : text;
+  const emotionTag: Record<Emotion, string> = {
+    happy: "[happily]",
+    surprised: "[surprised]",
+    sad: "[sorrowful]",
+    playful: "[playfully]",
+    focused: "[calm]",
+  };
+  const modeTag: Record<SolMode, string> = {
+    sweet: "[warmly]",
+    flirty: "[playfully]",
+    serious: "[calm]",
+    excited: "[excited]",
+    close: "[softly]",
+  };
+  const ttsText = model === "eleven_v3"
+    ? `${emotionTag[emotion]} ${modeTag[mode]} ${text}`
+    : text;
 
   try {
     const response = await fetch(

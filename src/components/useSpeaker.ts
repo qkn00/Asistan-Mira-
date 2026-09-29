@@ -108,9 +108,17 @@ export function useSpeaker() {
 
       if (!hasTTS) return;
 
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "tr-TR";
-      if (voiceRef.current) u.voice = voiceRef.current;
+      let u: SpeechSynthesisUtterance;
+      try {
+        u = new SpeechSynthesisUtterance(text);
+        u.lang = "tr-TR";
+        if (voiceRef.current) u.voice = voiceRef.current;
+      } catch {
+        // Safari can reject an invalid native speech parameter. Retry with
+        // the browser defaults instead of exposing an English DOM error.
+        u = new SpeechSynthesisUtterance(text);
+        u.lang = "tr-TR";
+      }
       u.rate = rate;
       u.pitch = opts.pitch ?? 1.15;
       u.onboundary = (e) => {
@@ -122,7 +130,12 @@ export function useSpeaker() {
       };
       u.onend = finish;
       u.onerror = finish;
-      window.speechSynthesis.speak(u);
+      try {
+        window.speechSynthesis.speak(u);
+      } catch {
+        // Keep the UI usable if iOS rejects the native voice synchronously.
+        finish();
+      }
     },
     [loop, stop, stopLoop],
   );

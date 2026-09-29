@@ -145,6 +145,7 @@ export default function Assistant() {
       speak(text, {
         rate: Math.min(2, Math.max(0.5, voiceProfile.rate)),
         pitch: Math.min(2, Math.max(0.5, voiceProfile.pitch)),
+        solMode: settings.solMode,
         onEnd: done,
       });
     },

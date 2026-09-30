@@ -129,7 +129,7 @@ export async function POST(req: Request) {
     "Görev/iş takibi: " + (databaseAvailable ? "okunabiliyor." : "doğrulanamadı."),
     "Aktif öğrenme: " + (databaseAvailable ? (operationalContext.includes("ÖĞRENME:") ? "durumu okunabiliyor." : "durumu okunamadı.") : "doğrulanamadı."),
     "İçerik ve operasyon kayıtları: " + (databaseAvailable ? "okunabiliyor." : "doğrulanamadı."),
-    "OpenAI sohbet motoru: " + (process.env.OPENAI_API_KEY ? "yapılandırılmış." : "API anahtarı yok; yerel cevap motoru kullanılabilir."),
+    "Model sağlayıcıları: " + [process.env.OPENAI_API_KEY ? "OpenAI" : "", process.env.GEMINI_API_KEY ? "Gemini" : "", process.env.ANTHROPIC_API_KEY ? "Claude" : ""].filter(Boolean).join(", ") + (process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY ? " yapılandırılmış." : " yapılandırılmamış; yerel cevap motoru kullanılabilir."),
     "ElevenLabs TTS: " + (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID ? "yapılandırılmış." : "tam yapılandırılmamış; tarayıcı sesi fallback olabilir."),
     "n8n otomasyon altyapısı: " + (process.env.MIRA_N8N_SECRET ? "güvenli bağlantı anahtarı yapılandırılmış." : "MIRA_N8N_SECRET yapılandırılmamış."),
     "n8n canlı sunucu erişimi: " + (n8nStatus.reachable ? "doğrulandı." : "doğrulanamadı.") + " " + n8nStatus.message,

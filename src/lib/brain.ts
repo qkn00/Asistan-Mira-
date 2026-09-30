@@ -73,7 +73,6 @@ export async function think(
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
         response_format: { type: "json_object" },
-        temperature: 0.85,
         messages: [
           {
             role: "system",
@@ -112,8 +111,46 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
         ],
       }),
     });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
+
+    // Bazı OpenAI model/endpoint kombinasyonları JSON mode veya eski
+    // Chat Completions parametrelerini reddedebilir. Önce güvenli JSON mode'u
+    // deneriz; 4xx alırsak aynı isteği response_format olmadan bir kez daha
+    // deneriz. Böylece fallback, geçici/uyumsuz parametre yüzünden devreye girmez.
+    let finalRes = res;
+    let finalBody = {
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Sen Mira'sın. Yukarıdaki kurallara göre kullanıcının son mesajına doğal Türkçe cevap ver.
+Sadece geçerli JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"playful"|"focused"}`,
+        },
+        ...history.slice(-10),
+        { role: "user", content: message },
+      ],
+    };
+
+    if (!finalRes.ok) {
+      const firstError = await finalRes.text();
+      console.error("Mira OpenAI primary request failed; retrying without response_format", {
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        status: finalRes.status,
+        error: firstError.slice(0, 500),
+      });
+
+      finalRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify(finalBody),
+      });
+
+      if (!finalRes.ok) {
+        const retryError = await finalRes.text();
+        throw new Error(`OpenAI ${finalRes.status}: ${retryError.slice(0, 1000)}`);
+      }
+    }
+
+    const data = await finalRes.json();
     const rawContent = data?.choices?.[0]?.message?.content;
     if (typeof rawContent !== "string" || !rawContent.trim()) {
       console.error("Mira fallback reason=empty_openai_content", {

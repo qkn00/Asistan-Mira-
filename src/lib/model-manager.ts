@@ -32,10 +32,6 @@ async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
   // primary brain while keeping the provider interface unchanged.
   const model = process.env.OPENAI_MODEL || "gpt-5.6-luna";
   const input = [
-    {
-      role: "system",
-      content: [{ type: "input_text", text: request.system }],
-    },
     ...request.history.slice(-10).map((turn) => ({
       role: turn.role,
       content: [{ type: "input_text", text: turn.content }],
@@ -54,6 +50,7 @@ async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
     },
     body: JSON.stringify({
       model,
+      instructions: request.system,
       input,
       max_output_tokens: 1200,
     }),

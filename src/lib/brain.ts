@@ -97,11 +97,17 @@ function localReply(message: string, userName: string, persona: Persona, history
     reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
   } else if (emotion === "focused") {
     reply = "Bunu birlikte çözelim. Nereden gireceğimizi netleştirip başlayalım.";
+  } else if (/(cevabını bekliyorum|cevap bekliyorum|cevabını ver)/.test(t)) {
+    emotion = "focused";
+    reply = "Haklısın, cevap bekliyorsun. Soruyu bir daha dolandırmadan cevaplayayım.";
+  } else if (/(hataların|hatalarını|yanlışların|yanlışlarını|hata yapıyorsun)/.test(t)) {
+    emotion = "focused";
+    reply = "Evet, hatalarımı söylüyorsun. Savunmaya geçmek yerine nerede hata yaptığımı bulup düzeltelim.";
   } else if (lastAssistant) {
-    // Son çare bile olsa artık "bir sonraki cümlenle bağlayalım" gibi bot kalıbı yok.
+    // Son çare bile olsa eski "bir sonraki cümlenle bağlayalım" kalıbına dönme.
     reply = f ? "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?" : "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?";
   } else {
-    reply = f ? "Hımm, bunu bir saniye toparlayayım. Ne demek istediğini yakaladım ama cevabı net vermek istiyorum." : "Bir saniye, bunu netleştireyim.";
+    reply = "Seni anladım. Biraz daha netleştirirsen doğrudan cevap vereceğim.";
   }
 
   return { reply, emotion };

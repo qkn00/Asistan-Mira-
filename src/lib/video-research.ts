@@ -51,10 +51,11 @@ export async function researchShortVideos(
     throw new Error(`YouTube search ${searchRes.status}: ${body}`);
   }
 
-  const searchData = await searchRes.json();
-  const ids = (searchData.items ?? [])
-    .map((item: { id?: { videoId?: string } }) => item.id?.videoId)
-    .filter((id: unknown): id is string => typeof id === "string");
+  const searchData: { items?: Array<{ id?: { videoId?: string } }> } = await searchRes.json();
+  const searchItems = Array.isArray(searchData.items) ? searchData.items : [];
+  const ids: string[] = searchItems
+    .map((item) => item.id?.videoId)
+    .filter((id): id is string => typeof id === "string");
 
   if (!ids.length) {
     return {
@@ -82,7 +83,7 @@ export async function researchShortVideos(
   }
 
   const videoData = await videoRes.json();
-  const rankById = new Map(ids.map((id, index) => [id, index]));
+  const rankById = new Map<string, number>(ids.map((id: string, index: number) => [id, index]));
 
   const items = (videoData.items ?? [])
     .map((item: {

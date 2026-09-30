@@ -1,4 +1,5 @@
 import type { Emotion } from "./avatar";
+import { generateWithFallback } from "./model-manager";
 
 type Turn = { role: "user" | "assistant"; content: string };
 export type Persona = "sweet" | "flirty";

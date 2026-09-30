@@ -75,7 +75,7 @@ export async function POST(req: Request) {
         : `Son 24 saatte Türkiye bölgesinde eşleşen Shorts bulunamadı. Araştırma zamanı: ${research.searchedAt}. Kaynak: YouTube Data API.`;
 
       try {
-        await db.execute(sql\`select 1\`);
+        await db.execute(sql`select 1`);
         const [userMsg] = await db.insert(messages).values({
           role: "user",
           content: text,

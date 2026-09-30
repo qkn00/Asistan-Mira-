@@ -82,7 +82,7 @@ function localReply(message: string, userName: string, persona: Persona, history
     reply = f
       ? "Hâlâ öyle geliyorsa haklısın 😅 Biraz fazla düzgün ve hazır cevap vermişim. Dur, kalıpları bırakayım; bundan sonra ne dediğine gerçekten cevap vereyim."
       : "Hâlâ öyle geliyorsa haklısın. Biraz fazla hazır cevap vermişim; bundan sonra söylediğin şeye doğrudan karşılık vereceğim.";
-  } else if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|kendini tanıt|adın ne)/.test(t)) {
+  } else if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|görevin ne|görevini ne|amacın ne|ne yapıyorsun|kendini tanıt|adın ne)/.test(t)) {
     emotion = "focused";
     reply = f
       ? `Ben Mira'yım ${userName}. Bu sistemde seninle konuşan, işlerini ve otomasyonunu takip etmek için geliştirdiğimiz dijital asistanım. Şu an burada sohbet, öğretme ve yaptığımız işleri takip etme tarafında çalışıyorum.`

@@ -52,8 +52,8 @@ export async function POST(req: Request) {
   // freshly fetched YouTube Data API results. Never let the language model
   // invent current view counts, titles or rankings.
   const asksLiveVideoResearch =
-    /(anlık|şu an|şuan|güncel|bugün|son 24 saat|son 24 saatte|trend|viral|en çok izlenen|en cok izlenen|izlenme)/i.test(lower) &&
-    /(video|short|shorts|tiktok|reels|izlen|trend|viral)/i.test(lower);
+    /(anlık|şu an|şuan|güncel|bugün|son 24 saat|son 24 saatte|çok izlenen|cok izlenen|en çok izlenen|en cok izlenen|en fazla izlenen|en fazla izlen|izlenme|trend|viral|popüler|popular)/i.test(lower) &&
+    /(video|short|shorts|tiktok|reels|izlen|trend|viral|popüler|popular)/i.test(lower);
 
   if (asksLiveVideoResearch) {
     try {

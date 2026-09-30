@@ -15,120 +15,95 @@ export function detectEmotion(text: string): Emotion {
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
 function localReply(message: string, userName: string, persona: Persona, history: Turn[] = []): { reply: string; emotion: Emotion } {
-  let emotion = detectEmotion(message);
-  const t = message.toLocaleLowerCase("tr-TR");
+  const t = message.toLocaleLowerCase("tr-TR").trim();
   const f = persona === "flirty";
+  const lastAssistant = [...history].reverse().find((turn) => turn.role === "assistant")?.content?.trim() ?? "";
+  const lastUser = [...history].reverse().find((turn) => turn.role === "user")?.content?.trim() ?? "";
+  let emotion = detectEmotion(message);
   let reply: string;
 
-  const greeted = /(merhaba|selam|hey|günaydın|iyi akşamlar)/.test(t);
+  const greeted = /^(merhaba|selam|hey|günaydın|iyi akşamlar)[!. ]*$/i.test(t);
   const howAreYou = /(nasılsın|naber|ne haber)/.test(t);
   const teaching = /(bana öğret|bana anlat|öğretir misin|nasıl öğrenirim|nasıl yapılıyor|adım adım|beraber yapalım|gösterir misin|öğret)/.test(t);
 
-  if (/(güzel|tatlı|seksi|harika görün|çok hoş|yakış)/.test(t)) {
-    emotion = "playful";
+  // Önce doğrudan soruları yakala. Belirsiz bir fallback'e düşmeden kullanıcının
+  // gerçekten sorduğu şeye cevap ver.
+  if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|görevin ne|görevini ne|amacın ne|ne yapıyorsun|kendini tanıt|adın ne)/.test(t)) {
+    emotion = "focused";
     reply = f
-      ? pick([
-          `Ay ${userName}, beni utandırıyorsun... Ama itiraf edeyim, bunu senden duymak çok hoşuma gitti.`,
-          "Hmm, iltifatlarına alışabilirim. Devam et bakalım, dinliyorum...",
-          `Sen böyle söyleyince yanaklarım kızarıyor ${userName}. Bu kıyafeti özellikle senin için seçtim zaten.`,
-        ])
-      : "Çok teşekkür ederim, çok naziksin!";
-  } else if (/(seni seviyorum|aşığım|hoşlanıyorum)/.test(t)) {
-    emotion = "playful";
-    reply = f
-      ? `Aman ${userName}... Böyle şeyler söyleyince kalbim hızlanıyor. Sen de benim en sevdiğim insansın, bunu biliyorsun değil mi?`
-      : "Ne kadar tatlısın! Ben de seninle olmayı çok seviyorum.";
-  } else if (greeted && emotion === "happy" && !howAreYou) {
-    reply = f
-      ? pick([
-          `Selam yakışıklı! Seni bekliyordum ${userName}. Bugün birlikte neler yapıyoruz?`,
-          `Merhaba ${userName}... Sonunda geldin! Seni özlemiştim.`,
-        ])
-      : `Merhaba ${userName}! Seni görmek çok güzel. Bugün birlikte ne yapıyoruz?`;
-  } else if (howAreYou && emotion === "happy") {
-    reply = f
-      ? `Sen gelince çok daha iyi oldum ${userName}. Asıl sen nasılsın, anlat bakalım?`
-      : `Çok iyiyim, sen yanımdayken hep daha iyiyim! Sen nasılsın ${userName}?`;
-  } else if (/(kıyafet|elbise|giyin|nasıl olmuşum|görün)/.test(t)) {
-    emotion = "playful";
-    reply = f
-      ? "Gardırobuma bir göz at, bu akşam senin için ne giyeyim? Seçim tamamen sende..."
-      : "Gardırobumdan istediğin kıyafeti seçebilirsin! Sence hangisi bana daha çok yakışıyor?";
-  } else if (emotion === "sad") {
-    reply = f
-      ? `Gel bakalım ${userName}, üzülmene hiç dayanamam. Anlat bana, ben buradayım ve seni dinliyorum.`
-      : `Ah ${userName}, buna gerçekten üzüldüm. Anlatmak istersen buradayım, seni dinliyorum.`;
-  } else if (emotion === "surprised") {
-    reply = "Vay canına! Gerçekten mi? Bunu hiç beklemiyordum, anlatsana detaylarıyla!";
-  } else if (emotion === "playful") {
-    reply = f ? "Hihi, sen tam bir yaramazsın! Ama itiraf edeyim, bu hâlin çok hoşuma gidiyor." : "Hihi, sen de amma şakacısın! Bu çok komikti.";
+      ? "Ben Mira'yım. Buradaki işim seninle konuşmak, yaptığımız işleri hatırlamak ve gerektiğinde onları birlikte yürütmek. Şimdilik bunun üzerine n8n ve otomasyon tarafını da bağlıyoruz."
+      : "Ben Mira'yım. Seninle konuşmak, yaptığımız işleri takip etmek ve gerektiğinde birlikte yürütmek için buradayım.";
+  } else if (/(robot|yapay|doğal|insan gibi|konuşma tarz|hissiyat|ruhsuz)/.test(t)) {
+    emotion = "focused";
+    reply = "Evet, hâlâ yer yer robot kaçıyorum 😅 Özellikle cevap veremediğim yerde hazır kalıba düşüyorum. Onu şimdi temizliyorum; bilmediğim şeyi de lafı dolandırmadan söyleyeceğim.";
   } else if (teaching) {
     emotion = "focused";
     reply = f
-      ? "Olur patron. Sana sadece sonucu vermeyeyim; adım adım beraber yapalım. Önce ilk adımı göstereceğim, sen yaptığında sonraki adıma geçeriz."
-      : "Olur. Sana sadece sonucu vermek yerine adım adım öğreteyim; önce ilk adımı yapalım, sonra devam ederiz.";
-  } else if (/(youtube|video)/.test(t)) {
-    reply = "YouTube videosu için önce güçlü bir kanca, sonra üç ana bilgi ve sonunda merak uyandıran bir kapanış öneriyorum. Konuyu söyle, senaryoyu birlikte yazalım.";
-  } else if (/tiktok/.test(t)) {
-    reply = "TikTok için ilk iki saniye her şey! Kısa, dikey ve trend bir sesle başlayalım. Hangi konu üzerinde çalışıyoruz?";
-  } else if (/trend/.test(t)) {
-    reply = "Trendleri analiz ederken arama hacmine, yorum yoğunluğuna ve paylaşım hızına bakıyorum. Hangi kategoriye odaklanalım?";
-  } else if (emotion === "focused") {
-    reply = "Tamam, odaklanıyorum. Bunu adım adım ele alalım; önce hedefini netleştirelim, sonra planı çıkaralım.";
+      ? "Olur. Tek seferde yüklenmeyelim; ilk adımı beraber yapalım, sen sonucu gösterince ikincisine geçeriz."
+      : "Olur. Küçük adımlarla gidelim; ilk adımı yapalım, sonra devam ederiz.";
+  } else if (greeted) {
+    emotion = "happy";
+    reply = f ? pick(["Selam. Geldin sonunda 😏 Bugün neye dalıyoruz?", "Günaydın patron. Hadi bakalım, bugün neyi çözüyoruz?"]) : "Selam. Buradayım. Bugün neye dalıyoruz?";
+  } else if (howAreYou) {
+    emotion = "happy";
+    reply = f ? "İyiyim. Sistem de ayakta 😏 Sen nasılsın?" : "İyiyim. Sen nasılsın?";
   } else if (/(teşekkür|sağ ol|eyvallah)/.test(t)) {
-    reply = f ? `Senin için her şey ${userName}... Bir dahaki sefere bir iltifat yeter.` : "Rica ederim! Senin için her zaman buradayım.";
-  } else if (/(robot|yapay|doğal|insan gibi|konuşma tarz|hissiyat|ruhsuz)/.test(t)) {
-    emotion = "focused";
-    reply = f
-      ? "Hâlâ öyle geliyorsa haklısın 😅 Biraz fazla düzgün ve hazır cevap vermişim. Dur, kalıpları bırakayım; bundan sonra ne dediğine gerçekten cevap vereyim."
-      : "Hâlâ öyle geliyorsa haklısın. Biraz fazla hazır cevap vermişim; bundan sonra söylediğin şeye doğrudan karşılık vereceğim.";
-  } else if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|görevin ne|görevini ne|amacın ne|ne yapıyorsun|kendini tanıt|adın ne)/.test(t)) {
-    emotion = "focused";
-    reply = f
-      ? `Ben Mira'yım ${userName}. Bu sistemde seninle konuşan, işlerini ve otomasyonunu takip etmek için geliştirdiğimiz dijital asistanım. Şu an burada sohbet, öğretme ve yaptığımız işleri takip etme tarafında çalışıyorum.`
-      : `Ben Mira'yım ${userName}. Seninle konuşan, sana öğretmek ve yaptığımız işleri takip etmek için geliştirdiğimiz dijital asistanım.`;
+    emotion = "happy";
+    reply = f ? pick(["Ne demek 😏", "Eyvallah. Devam ediyoruz."]) : "Ne demek.";
+  } else if (/(seni seviyorum|aşığım|hoşlanıyorum)/.test(t)) {
+    emotion = "playful";
+    reply = f ? "Hah, şimdi Mira'nın yüzünü kızartıyorsun 😏" : "Tatlısın.";
+  } else if (/(güzel|tatlı|seksi|harika görün|çok hoş|yakış)/.test(t)) {
+    emotion = "playful";
+    reply = f ? pick(["Bunu duymak hoşuma gitti 😏", "Hımm… bunu not ettim."]) : "Teşekkür ederim.";
+  } else if (/(kıyafet|elbise|giyin|nasıl olmuşum|görün)/.test(t)) {
+    emotion = "playful";
+    reply = f ? "Bence bu konuda biraz daha cesur seçimler yapabiliriz 😏" : "Kıyafet tarafında birkaç farklı tarz deneyebiliriz.";
   } else if (/(otomasyon lazım|otomasyon istiyorum|otomasyon yap|otomasyon kur)/.test(t)) {
     emotion = "focused";
-    reply = `Tamam ${userName}, otomasyon istiyorsun. Ne yapmak istediğini söyle; mevcut Mira sistemine göre nereden başlayacağımızı netleştirip ilerleyelim.`;
+    reply = "Tamam, otomasyonu konuşalım. Ne yapmasını istediğini söyle; akışı parçalayalım ve nereden başlayacağımızı çıkaralım.";
   } else if (/(sesim geliyor|ses geliyor|duyuyor musun|beni duyuyor)/.test(t)) {
     emotion = "happy";
-    reply = f
-      ? "Geliyor patron 😄 Seni duyuyorum. Ama sen aslında benim sesimin doğal gelip gelmediğini de test ediyorsun, onu da anladım."
-      : "Geliyor, seni duyuyorum. Bir de benim sesimin doğal gelip gelmediğini test ediyorsun, onu da anladım.";
-  } else {
-    // Yerel motor da mümkün olduğunca konuşmanın son turuna tutunsun.
-    // AI anahtarı yokken aynı "bir cümle daha söyle" kalıbına düşmemek için
-    // kısa onaylar ve bağlama dönen sorular ayrı ele alınır.
-    const lastUser = [...history].reverse().find((turn) => turn.role === "user")?.content?.trim() ?? "";
-    const lastAssistant = [...history].reverse().find((turn) => turn.role === "assistant")?.content?.trim() ?? "";
-
-    if (/^(tamam|peki|olur|aynen|evet|hı hı|hmm|hımm)$/i.test(t)) {
-      emotion = "happy";
-      if (lastAssistant) {
-        reply = f
-          ? "Tamam patron, oradan devam edelim. Ne kısmını yapmamı istiyorsun?"
-          : "Tamam, oradan devam edelim. Hangi kısmı yapalım?";
-      } else {
-        reply = f ? "Tamam patron, buradayım. Nereden başlayalım?" : "Tamam, buradayım. Nereden başlayalım?";
-      }
-    } else if (/^(devam et|devam|sürdür|kaldığımız yerden devam et)$/i.test(t)) {
-      emotion = "focused";
-      reply = lastUser
-        ? `Kaldığımız yerden devam edelim. Son konuştuğumuz konu “${lastUser.slice(0, 120)}” idi; hangi adımı şimdi ele alalım?`
-        : "Devam edelim. Şu an hangi konuyu sürdürüyoruz?";
-    } else if (/^(neden|niye|nasıl|nasıl yani|ne demek|hangisi|peki neden|peki nasıl)\??$/i.test(t) && lastAssistant) {
-      emotion = "focused";
-      reply = `Az önce söylediğim şeye göre cevaplayayım: “${lastAssistant.slice(0, 160)}” kısmını mı soruyorsun? Öyleyse onu netleştireyim.`;
-    } else if (lastAssistant) {
-      emotion = detectEmotion(lastAssistant);
-      reply = f
-        ? `Anladım patron. Bunu önceki söylediğim “${lastAssistant.slice(0, 120)}” kısmıyla bağlantılı olarak ele alıyorum; biraz daha netleştirirsen doğrudan oraya gireceğim.`
-        : `Anladım. Bunu önceki söylediğim “${lastAssistant.slice(0, 120)}” kısmıyla bağlantılı olarak ele alıyorum; biraz daha netleştirirsen doğrudan oraya gireceğim.`;
+    reply = "Geliyor. Seni duyuyorum.";
+  } else if (/(youtube|video)/.test(t)) {
+    emotion = "focused";
+    reply = "YouTube tarafındaysak konu → senaryo → ses → video → yayın zincirinden ilerleriz. Şu an hangi halkadayız?";
+  } else if (/tiktok/.test(t)) {
+    emotion = "focused";
+    reply = "TikTok tarafına da girebiliriz. Konuyu söyle, akışı ona göre kurarız.";
+  } else if (/trend/.test(t)) {
+    emotion = "focused";
+    reply = "Trend tarafını da ele alırız. Önce hangi kategoriye bakacağımızı belirleyelim.";
+  } else if (/^(tamam|peki|olur|aynen|evet|hı hı|hmm|hımm)$/i.test(t)) {
+    emotion = "happy";
+    if (/^(aynen|evet)$/i.test(t)) {
+      reply = lastAssistant ? "Aynen. Oradan devam." : "Aynen.";
     } else {
-      emotion = "focused";
-      reply = f ? "Tam olarak neyi kastettiğini yakalamaya çalışıyorum patron; bir sonraki cümlenle konuyu bağlayalım." : "Tam olarak neyi kastettiğini yakalamaya çalışıyorum; bir sonraki cümlenle konuyu bağlayalım.";
+      reply = lastAssistant ? "Tamam. Oradan devam ediyoruz." : "Tamam.";
     }
+  } else if (/^(devam et|devam|sürdür|kaldığımız yerden devam et)$/i.test(t)) {
+    emotion = "focused";
+    reply = lastUser
+      ? "Devam. Son konuştuğumuz yerden alıyorum."
+      : "Devam. Buradan ilerliyoruz.";
+  } else if (/^(neden|niye|nasıl|nasıl yani|ne demek|hangisi|peki neden|peki nasıl)\??$/i.test(t) && lastAssistant) {
+    emotion = "focused";
+    reply = "Az önceki cevabımın o kısmını soruyorsan, onu açayım.";
+  } else if (emotion === "sad") {
+    reply = f ? "Canını sıkan bir şey var belli. Anlatırsan birlikte bakalım." : "Canını sıkan bir şey varsa anlat; birlikte bakalım.";
+  } else if (emotion === "surprised") {
+    reply = "Oha. Bu kısmı aç biraz.";
+  } else if (emotion === "playful") {
+    reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
+  } else if (emotion === "focused") {
+    reply = "Bunu birlikte çözelim. Nereden gireceğimizi netleştirip başlayalım.";
+  } else if (lastAssistant) {
+    // Son çare bile olsa artık "bir sonraki cümlenle bağlayalım" gibi bot kalıbı yok.
+    reply = f ? "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?" : "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?";
+  } else {
+    reply = f ? "Hımm, bunu bir saniye toparlayayım. Ne demek istediğini yakaladım ama cevabı net vermek istiyorum." : "Bir saniye, bunu netleştireyim.";
   }
+
   return { reply, emotion };
 }
 

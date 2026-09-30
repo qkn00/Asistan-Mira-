@@ -69,7 +69,10 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing");
 
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const primaryModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.7-flash";
+  const models = [...new Set([primaryModel, fallbackModel])];
+
   const contents = [
     ...request.history.slice(-10).map((turn) => ({
       role: turn.role === "assistant" ? "model" : "user",
@@ -78,33 +81,54 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
     { role: "user", parts: [{ text: request.message }] },
   ];
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": key,
-      },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: request.system }] },
-        contents,
-      }),
-    },
-  );
+  let lastError = "Gemini unavailable";
 
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${await readError(res)}`);
+  for (const model of models) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": key,
+          },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: request.system }] },
+            contents,
+          }),
+        },
+      );
 
-  const data = await res.json();
-  const content = cleanText(
-    data?.candidates?.[0]?.content?.parts
-      ?.filter((part: { text?: unknown }) => typeof part?.text === "string")
-      ?.map((part: { text: string }) => part.text)
-      ?.join(""),
-  );
-  if (!content) throw new Error("Gemini returned empty content");
+      if (res.ok) {
+        const data = await res.json();
+        const content = cleanText(
+          data?.candidates?.[0]?.content?.parts
+            ?.filter((part: { text?: unknown }) => typeof part?.text === "string")
+            ?.map((part: { text: string }) => part.text)
+            ?.join(""),
+        );
+        if (!content) throw new Error(`Gemini ${model} returned empty content`);
 
-  return { provider: "gemini", model, content };
+        return { provider: "gemini", model, content };
+      }
+
+      const body = await readError(res);
+      lastError = `Gemini ${res.status}: ${body}`;
+
+      // 503 UNAVAILABLE is a transient backend/capacity condition. Retry with
+      // exponential backoff, then try the configured fallback model.
+      if (res.status === 503) {
+        const delayMs = 1000 * 2 ** attempt;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      throw new Error(lastError);
+    }
+  }
+
+  throw new Error(lastError);
 }
 
 async function callClaude(request: ModelRequest): Promise<ModelResult> {

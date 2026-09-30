@@ -97,6 +97,12 @@ function localReply(message: string, userName: string, persona: Persona, history
     reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
   } else if (emotion === "focused") {
     reply = "Bunu birlikte çözelim. Nereden gireceğimizi netleştirip başlayalım.";
+  } else if (/(ne durumda|hangi durumdayız|neredeyiz|şu an ne durumdayız|şu anda ne durumdayız|son durum|durum ne)/.test(t)) {
+    emotion = "focused";
+    reply = "Şu an Mira'nın sohbet, hafıza ve gerçek-sonuç takibi tarafı çalışıyor. Ses ve ağız hareketi de hazır; n8n bağlantısını ilerletiyoruz. Eksik kalan ana parça yetki sistemi ve proaktif günlük rapor.";
+  } else if (/(ne durumda|hangi durumdayız|neredeyiz|şu an ne durumdayız|şu anda ne durumdayız|son durum|durum ne)/.test(t)) {
+    emotion = "focused";
+    reply = "Şu an Mira'nın sohbet, hafıza ve gerçek-sonuç takibi tarafı çalışıyor. Ses ve ağız hareketi de hazır; n8n bağlantısını ilerletiyoruz. Eksik kalan ana parça yetki sistemi ve proaktif günlük rapor.";
   } else if (/(cevabını bekliyorum|cevap bekliyorum|cevabını ver)/.test(t)) {
     emotion = "focused";
     reply = "Haklısın, cevap bekliyorsun. Soruyu bir daha dolandırmadan cevaplayayım.";

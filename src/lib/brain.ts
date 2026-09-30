@@ -95,6 +95,9 @@ function localReply(message: string, userName: string, persona: Persona, history
     reply = "Oha. Bu kısmı aç biraz.";
   } else if (emotion === "playful") {
     reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
+  } else if (/(n8n.*(çalış|durum)|çalışıyor mu.*n8n|n8n.*gerçekten|n8n.*aktif|n8n.*canlı)/.test(t)) {
+    emotion = "focused";
+    reply = "Şu an bunu canlı n8n çalışmasından doğrulayamıyorum. Mira tarafında n8n bağlantı altyapısı var, ama workflow'un gerçekten aktif çalıştığını bu sohbetten doğrulamadan 'çalışıyor' diyemem.";
   } else if (/(neleri yapabiliyorsun|neler yapabiliyorsun|neler eksik|ne eksik|hangi özelliklerin var|şu an neler yapabiliyorsun|şu anda neler yapabiliyorsun)/.test(t)) {
     emotion = "focused";
     reply = statusContext || "Şu anki yetenek ve eksiklerimi gerçek sistem durumundan kontrol edemiyorum; bunu kontrol edip net söylemem gerekiyor.";
@@ -128,7 +131,7 @@ export async function think(
   statusContext = "",
 ): Promise<{ reply: string; emotion: Emotion }> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return localReply(message, userName, persona, history);
+  if (!key) return localReply(message, userName, persona, history, statusContext);
 
   const style =
     persona === "flirty"
@@ -187,7 +190,7 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     const emotion: Emotion = ["happy", "surprised", "sad", "playful", "focused"].includes(parsed.emotion)
       ? parsed.emotion
       : detectEmotion(parsed.reply ?? "");
-    return { reply: String(parsed.reply ?? "").trim() || localReply(message, userName, persona, history).reply, emotion };
+    return { reply: String(parsed.reply ?? "").trim() || localReply(message, userName, persona, history, statusContext).reply, emotion };
   } catch (e) {
     console.error("OpenAI error, falling back:", e);
     return localReply(message, userName, persona, history, statusContext);

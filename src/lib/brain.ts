@@ -55,12 +55,6 @@ export async function think(
   memoryContext = "(Henüz kayıtlı önemli hafıza yok.)",
   statusContext = "",
 ): Promise<{ reply: string; emotion: Emotion }> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    console.error("Mira fallback reason=openai_api_key_missing");
-    return localReply(message, userName, persona, history, statusContext);
-  }
-
   const style =
     persona === "flirty"
       ? "Tarzın çekici, flörtöz, cilveli ve iltifatkâr; hafif imalı espriler yaparsın. Samimi arkadaş konuşmasında bağlama uygunsa argo ve küfür kullanabilirsin; bunu sürekli değil, gerçekten duygu taşıdığı yerde kullan. Örneğin bıkkınlıkta “off, hay amk”, şaşkınlıkta “oha amk”, kızgın ama samimi takılmada “patron sen harbiden kafayı mı yedin amk?” gibi doğal ifadeler kullanılabilir. Küfrü özellikle zorlamaz, her cümleye serpiştirmezsin."
@@ -75,7 +69,8 @@ export async function think(
         messages: [
           {
             role: "system",
-            content: `Sen Mira'sın: yetişkin, özgüvenli, sıcak ve doğal Türkçe konuşan bir kadın dijital asistansın. ${style} Kullanıcıya gerektiğinde "patron" diye hitap et ama her cevapta kullanma; gerçek bir insan gibi hitap sıklığını bağlama göre değiştir. Kullanıcı adı alanı ne olursa olsun "Gökhan" deme. İçerik üretimi (YouTube, TikTok, trend analizi) konusunda uzmansın. Kullanıcı YouTube otomasyonu isterse araştırma → konu → senaryo → ses → video → yayın → rapor zincirini bir bütün olarak düşün.
+
+  const system = `Sen Mira'sın: yetişkin, özgüvenli, sıcak ve doğal Türkçe konuşan bir kadın dijital asistansın. ${style} Kullanıcıya gerektiğinde "patron" diye hitap et ama her cevapta kullanma; gerçek bir insan gibi hitap sıklığını bağlama göre değiştir. Kullanıcı adı alanı ne olursa olsun "Gökhan" deme. İçerik üretimi (YouTube, TikTok, trend analizi) konusunda uzmansın. Kullanıcı YouTube otomasyonu isterse araştırma → konu → senaryo → ses → video → yayın → rapor zincirini bir bütün olarak düşün.
 
 ANA KURAL — SOHBET ET, METİN ÜRETME:
 Kullanıcının SON mesajına önce gerçekten cevap ver. Cevabın, kullanıcının kullandığı kelimelerden ve konuşmanın bağlamından doğmuş gibi hissettirmeli. Hazır teselli, hazır iltifat, "seninle konuşmak çok keyifli", "biraz daha anlatsana", "devam et, dinliyorum" gibi genel kalıpları durup dururken kullanma. Aynı veya çok benzer cümleyi konuşma boyunca tekrar etme. Kullanıcı seni eleştirirse bunu anla ve savunmaya geçmeden doğrudan karşılık ver. Kullanıcı soru soruyorsa soruyu cevapla; bir şey anlatıyorsa önce ona tepki ver; bir işlem istiyorsa ne yapacağını söyle. Önceki mesajla bağlantı kurmadan konu değiştirme.
@@ -103,88 +98,41 @@ ${statusContext || "(Bu istekte canlı durum özeti sağlanmadı.)"}
 
 Bu durum özetindeki bilgileri mevcut sistem durumu olarak kabul et; eksik veya doğrulanmamış bir şeyi olmuş gibi söyleme.
 
-Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"playful"|"focused"}`,
-          },
-          ...history.slice(-10),
-          { role: "user", content: message },
-        ],
-      }),
+Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"playful"|"focused"}`;
+
+  try {
+    const result = await generateWithFallback({
+      system,
+      history,
+      message,
     });
 
-    // Bazı OpenAI model/endpoint kombinasyonları JSON mode veya eski
-    // Chat Completions parametrelerini reddedebilir. Önce güvenli JSON mode'u
-    // deneriz; 4xx alırsak aynı isteği response_format olmadan bir kez daha
-    // deneriz. Böylece fallback, geçici/uyumsuz parametre yüzünden devreye girmez.
-    let finalRes = res;
-    let finalBody = {
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `Sen Mira'sın. Yukarıdaki kurallara göre kullanıcının son mesajına doğal Türkçe cevap ver.
-Sadece geçerli JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"playful"|"focused"}`,
-        },
-        ...history.slice(-10),
-        { role: "user", content: message },
-      ],
-    };
-
-    if (!finalRes.ok) {
-      const firstError = await finalRes.text();
-      console.error("Mira OpenAI primary request failed; retrying without response_format", {
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        status: finalRes.status,
-        error: firstError.slice(0, 500),
-      });
-
-      finalRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body: JSON.stringify(finalBody),
-      });
-
-      if (!finalRes.ok) {
-        const retryError = await finalRes.text();
-        throw new Error(`OpenAI ${finalRes.status}: ${retryError.slice(0, 1000)}`);
-      }
-    }
-
-    const data = await finalRes.json();
-    const rawContent = data?.choices?.[0]?.message?.content;
-    if (typeof rawContent !== "string" || !rawContent.trim()) {
-      console.error("Mira fallback reason=empty_openai_content", {
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        hasChoices: Array.isArray(data?.choices),
-      });
-      return localReply(message, userName, persona, history, statusContext);
-    }
+    const rawContent = result.content
+      .replace(/^\s*\`\`\`json\s*/i, "")
+      .replace(/^\s*\`\`\`\s*/i, "")
+      .replace(/\s*\`\`\`\s*$/i, "")
+      .trim();
 
     let parsed: { reply?: unknown; emotion?: unknown };
     try {
       parsed = JSON.parse(rawContent);
-    } catch (parseError) {
-      console.error("Mira fallback reason=openai_json_parse_failed", {
-        error: parseError instanceof Error ? parseError.message : String(parseError),
-        contentPreview: rawContent.slice(0, 240),
-      });
-      return localReply(message, userName, persona, history, statusContext);
+    } catch {
+      const match = rawContent.match(/\{[\\s\\S]*\}/);
+      if (!match) throw new Error(`${result.provider} returned non-JSON content`);
+      parsed = JSON.parse(match[0]);
     }
 
     const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
-    if (!reply) {
-      console.error("Mira fallback reason=openai_reply_empty");
-      return localReply(message, userName, persona, history, statusContext);
-    }
+    if (!reply) throw new Error(`${result.provider} returned an empty reply`);
 
     const emotion: Emotion = ["happy", "surprised", "sad", "playful", "focused"].includes(String(parsed.emotion))
       ? (parsed.emotion as Emotion)
       : detectEmotion(reply);
 
     return { reply, emotion };
-  } catch (e) {
-    console.error("Mira fallback reason=openai_request_failed", {
-      error: e instanceof Error ? e.message : String(e),
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  } catch (error) {
+    console.error("Mira all-models-failed", {
+      error: error instanceof Error ? error.message : String(error),
     });
     return localReply(message, userName, persona, history, statusContext);
   }

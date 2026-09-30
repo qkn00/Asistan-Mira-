@@ -122,9 +122,16 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
 
     return { reply, emotion };
   } catch (error) {
+    const failureReason = error instanceof Error ? error.message : String(error);
     console.error("Mira all-models-failed", {
-      error: error instanceof Error ? error.message : String(error),
+      error: failureReason,
     });
-    return localReply(message, userName, persona, history, statusContext);
+    // During provider setup, surface a sanitized provider error instead of
+    // pretending that a model answered. This makes Railway configuration
+    // failures diagnosable from the chat UI without exposing API secrets.
+    return {
+      reply: `Model bağlantısı başarısız: ${failureReason.slice(0, 500)}`,
+      emotion: "focused",
+    };
   }
 }

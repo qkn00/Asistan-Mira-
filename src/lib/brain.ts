@@ -72,7 +72,6 @@ export async function think(
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",

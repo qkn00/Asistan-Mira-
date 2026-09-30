@@ -110,19 +110,21 @@ function localReply(message: string, userName: string, persona: Persona, history
   } else if (/(ne durumda|hangi durumdayız|neredeyiz|şu an ne durumdayız|şu anda ne durumdayız|son durum|durum ne)/.test(t)) {
     emotion = "focused";
     reply = "Şu an Mira'nın sohbet, hafıza ve gerçek-sonuç takibi tarafı çalışıyor. Ses ve ağız hareketi de hazır; n8n bağlantısını ilerletiyoruz. Eksik kalan ana parça yetki sistemi ve proaktif günlük rapor.";
-  } else if (emotion === "focused") {
-    reply = "Bunu birlikte çözelim. Nereden gireceğimizi netleştirip başlayalım.";
-  } else if (/(cevabını bekliyorum|cevap bekliyorum|cevabını ver)/.test(t)) {
+  }  } else if (/(cevabını bekliyorum|cevap bekliyorum|cevabını ver)/.test(t)) {
     emotion = "focused";
     reply = "Haklısın, cevap bekliyorsun. Soruyu bir daha dolandırmadan cevaplayayım.";
   } else if (/(hataların|hatalarını|yanlışların|yanlışlarını|hata yapıyorsun)/.test(t)) {
     emotion = "focused";
     reply = "Evet, hatalarımı söylüyorsun. Savunmaya geçmek yerine nerede hata yaptığımı bulup düzeltelim.";
+  } else if (emotion === "focused") {
+    reply = "Tamam. Bunu netleştirip doğrudan ilerleyelim.";
   } else if (lastAssistant) {
     // Son çare bile olsa eski "bir sonraki cümlenle bağlayalım" kalıbına dönme.
     reply = f ? "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?" : "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?";
   } else {
-    reply = "Seni anladım. Biraz daha netleştirirsen doğrudan cevap vereceğim.";
+    reply = lastUser
+      ? "Bunu önceki konuşmanın devamı olarak alıyorum; net cevabı doğrudan çıkaralım."
+      : "Bunu doğrudan cevaplayabilmem için biraz bağlam gerekiyor.";
   }
 
   return { reply, emotion };
@@ -137,7 +139,10 @@ export async function think(
   statusContext = "",
 ): Promise<{ reply: string; emotion: Emotion }> {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return localReply(message, userName, persona, history, statusContext);
+  if (!key) {
+    console.error("Mira fallback reason=openai_api_key_missing");
+    return localReply(message, userName, persona, history, statusContext);
+  }
 
   const style =
     persona === "flirty"
@@ -192,13 +197,42 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
-    const parsed = JSON.parse(data.choices[0].message.content);
-    const emotion: Emotion = ["happy", "surprised", "sad", "playful", "focused"].includes(parsed.emotion)
-      ? parsed.emotion
-      : detectEmotion(parsed.reply ?? "");
-    return { reply: String(parsed.reply ?? "").trim() || localReply(message, userName, persona, history, statusContext).reply, emotion };
+    const rawContent = data?.choices?.[0]?.message?.content;
+    if (typeof rawContent !== "string" || !rawContent.trim()) {
+      console.error("Mira fallback reason=empty_openai_content", {
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        hasChoices: Array.isArray(data?.choices),
+      });
+      return localReply(message, userName, persona, history, statusContext);
+    }
+
+    let parsed: { reply?: unknown; emotion?: unknown };
+    try {
+      parsed = JSON.parse(rawContent);
+    } catch (parseError) {
+      console.error("Mira fallback reason=openai_json_parse_failed", {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        contentPreview: rawContent.slice(0, 240),
+      });
+      return localReply(message, userName, persona, history, statusContext);
+    }
+
+    const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
+    if (!reply) {
+      console.error("Mira fallback reason=openai_reply_empty");
+      return localReply(message, userName, persona, history, statusContext);
+    }
+
+    const emotion: Emotion = ["happy", "surprised", "sad", "playful", "focused"].includes(String(parsed.emotion))
+      ? (parsed.emotion as Emotion)
+      : detectEmotion(reply);
+
+    return { reply, emotion };
   } catch (e) {
-    console.error("OpenAI error, falling back:", e);
+    console.error("Mira fallback reason=openai_request_failed", {
+      error: e instanceof Error ? e.message : String(e),
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    });
     return localReply(message, userName, persona, history, statusContext);
   }
 }

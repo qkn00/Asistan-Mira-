@@ -95,11 +95,14 @@ function localReply(message: string, userName: string, persona: Persona, history
     reply = "Oha. Bu kısmı aç biraz.";
   } else if (emotion === "playful") {
     reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
-  } else if (emotion === "focused") {
-    reply = "Bunu birlikte çözelim. Nereden gireceğimizi netleştirip başlayalım.";
+  } else if (/(neleri yapabiliyorsun|neler yapabiliyorsun|neler eksik|ne eksik|hangi özelliklerin var|şu an neler yapabiliyorsun|şu anda neler yapabiliyorsun)/.test(t)) {
+    emotion = "focused";
+    reply = "Şu an sohbet, hafıza ve yaptığımız işlerin durumunu takip edebiliyorum; sesli konuşma, ElevenLabs sesi ve sese bağlı ağız hareketi de hazır. n8n otomasyon bağlantısını ilerletiyoruz. Eksik kalan ana parçalar yetki sistemi, proaktif günlük rapor ve n8n'nin canlı olarak tam devreye alınması.";
   } else if (/(ne durumda|hangi durumdayız|neredeyiz|şu an ne durumdayız|şu anda ne durumdayız|son durum|durum ne)/.test(t)) {
     emotion = "focused";
     reply = "Şu an Mira'nın sohbet, hafıza ve gerçek-sonuç takibi tarafı çalışıyor. Ses ve ağız hareketi de hazır; n8n bağlantısını ilerletiyoruz. Eksik kalan ana parça yetki sistemi ve proaktif günlük rapor.";
+  } else if (emotion === "focused") {
+    reply = "Bunu birlikte çözelim. Nereden gireceğimizi netleştirip başlayalım.";
   } else if (/(cevabını bekliyorum|cevap bekliyorum|cevabını ver)/.test(t)) {
     emotion = "focused";
     reply = "Haklısın, cevap bekliyorsun. Soruyu bir daha dolandırmadan cevaplayayım.";

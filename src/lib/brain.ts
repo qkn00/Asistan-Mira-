@@ -98,6 +98,27 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
       message,
     });
 
+    // Provider/model questions must never be answered from the model's own guess.
+    // Use the backend result that actually produced this response.
+    const asksProvider =
+      /(hangi|hangi.*model|model.*hang|hangi.*sağlay|sağlayıc|provider|hangi.*yapay zek|hangi.*ai|hangi.*zeka)/i.test(message) &&
+      /(model|sağlay|provider|ai|yapay zek|zeka)/i.test(message);
+
+    if (asksProvider) {
+      const providerNames: Record<string, string> = {
+        openai: "OpenAI",
+        gemini: "Gemini",
+        claude: "Claude",
+        groq: "Groq",
+        openrouter: "OpenRouter",
+      };
+      const providerName = providerNames[result.provider] ?? result.provider;
+      return {
+        reply: `Bu yanıtı backend'de gerçekten ${providerName} üzerinden ${result.model} modeli üretti.`,
+        emotion: "focused",
+      };
+    }
+
     const rawContent = result.content
       .replace(/^\s*\`\`\`json\s*/i, "")
       .replace(/^\s*\`\`\`\s*/i, "")

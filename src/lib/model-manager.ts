@@ -27,26 +27,42 @@ async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY missing");
 
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const messages = [
-    { role: "system", content: request.system },
-    ...request.history.slice(-10),
-    { role: "user", content: request.message },
+  // Use the current Responses API and a current low-cost GPT-5.6 model.
+  // This avoids depending on the older Chat Completions path for Mira's
+  // primary brain while keeping the provider interface unchanged.
+  const model = process.env.OPENAI_MODEL || "gpt-5.6-luna";
+  const input = [
+    {
+      role: "system",
+      content: [{ type: "input_text", text: request.system }],
+    },
+    ...request.history.slice(-10).map((turn) => ({
+      role: turn.role,
+      content: [{ type: "input_text", text: turn.content }],
+    })),
+    {
+      role: "user",
+      content: [{ type: "input_text", text: request.message }],
+    },
   ];
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify({ model, messages }),
+    body: JSON.stringify({
+      model,
+      input,
+      max_output_tokens: 1200,
+    }),
   });
 
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await readError(res)}`);
 
   const data = await res.json();
-  const content = cleanText(data?.choices?.[0]?.message?.content);
+  const content = cleanText(data?.output_text);
   if (!content) throw new Error("OpenAI returned empty content");
 
   return { provider: "openai", model, content };

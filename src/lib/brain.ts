@@ -16,118 +16,35 @@ const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
 function localReply(message: string, userName: string, persona: Persona, history: Turn[] = [], statusContext = ""): { reply: string; emotion: Emotion } {
   const t = message.toLocaleLowerCase("tr-TR").trim();
-  const f = persona === "flirty";
-  const lastAssistant = [...history].reverse().find((turn) => turn.role === "assistant")?.content?.trim() ?? "";
-  const lastUser = [...history].reverse().find((turn) => turn.role === "user")?.content?.trim() ?? "";
   let emotion = detectEmotion(message);
-  let reply: string;
 
-  const greeted = /^(merhaba|selam|hey|günaydın|iyi akşamlar)[!. ]*$/i.test(t);
-  const howAreYou = /(nasılsın|naber|ne haber)/.test(t);
-  const teaching = /(bana öğret|bana anlat|öğretir misin|nasıl öğrenirim|nasıl yapılıyor|adım adım|beraber yapalım|gösterir misin|öğret)/.test(t);
-
-  // Önce doğrudan soruları yakala. Belirsiz bir fallback'e düşmeden kullanıcının
-  // gerçekten sorduğu şeye cevap ver.
-  if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|görevin ne|görevini ne|görevini.*(anlat|açıkla)|amacın ne|ne yapıyorsun|kendini tanıt|kendini.*(anlat|tanıt)|adın ne)/.test(t)) {
-    emotion = "focused";
-    reply = f
-      ? "Ben Mira'yım. Buradaki işim seninle konuşmak, yaptığımız işleri hatırlamak ve gerektiğinde onları birlikte yürütmek. Şimdilik bunun üzerine n8n ve otomasyon tarafını da bağlıyoruz."
-      : "Ben Mira'yım. Seninle konuşmak, yaptığımız işleri takip etmek ve gerektiğinde birlikte yürütmek için buradayım.";
-  } else if (/(robot|yapay|doğal|insan gibi|konuşma tarz|hissiyat|ruhsuz)/.test(t)) {
-    emotion = "focused";
-    reply = "Evet, hâlâ yer yer robot kaçıyorum 😅 Özellikle cevap veremediğim yerde hazır kalıba düşüyorum. Onu şimdi temizliyorum; bilmediğim şeyi de lafı dolandırmadan söyleyeceğim.";
-  } else if (teaching) {
-    emotion = "focused";
-    reply = f
-      ? "Olur. Tek seferde yüklenmeyelim; ilk adımı beraber yapalım, sen sonucu gösterince ikincisine geçeriz."
-      : "Olur. Küçük adımlarla gidelim; ilk adımı yapalım, sonra devam ederiz.";
-  } else if (greeted) {
-    emotion = "happy";
-    reply = f ? pick(["Selam. Geldin sonunda 😏 Bugün neye dalıyoruz?", "Günaydın patron. Hadi bakalım, bugün neyi çözüyoruz?"]) : "Selam. Buradayım. Bugün neye dalıyoruz?";
-  } else if (howAreYou) {
-    emotion = "happy";
-    reply = f ? "İyiyim. Sistem de ayakta 😏 Sen nasılsın?" : "İyiyim. Sen nasılsın?";
-  } else if (/(teşekkür|sağ ol|eyvallah)/.test(t)) {
-    emotion = "happy";
-    reply = f ? pick(["Ne demek 😏", "Eyvallah. Devam ediyoruz."]) : "Ne demek.";
-  } else if (/(seni seviyorum|aşığım|hoşlanıyorum)/.test(t)) {
-    emotion = "playful";
-    reply = f ? "Hah, şimdi Mira'nın yüzünü kızartıyorsun 😏" : "Tatlısın.";
-  } else if (/(güzel|tatlı|seksi|harika görün|çok hoş|yakış)/.test(t)) {
-    emotion = "playful";
-    reply = f ? pick(["Bunu duymak hoşuma gitti 😏", "Hımm… bunu not ettim."]) : "Teşekkür ederim.";
-  } else if (/(kıyafet|elbise|giyin|nasıl olmuşum|görün)/.test(t)) {
-    emotion = "playful";
-    reply = f ? "Bence bu konuda biraz daha cesur seçimler yapabiliriz 😏" : "Kıyafet tarafında birkaç farklı tarz deneyebiliriz.";
-  } else if (/(otomasyon lazım|otomasyon istiyorum|otomasyon yap|otomasyon kur)/.test(t)) {
-    emotion = "focused";
-    reply = "Tamam, otomasyonu konuşalım. Ne yapmasını istediğini söyle; akışı parçalayalım ve nereden başlayacağımızı çıkaralım.";
-  } else if (/(sesim geliyor|ses geliyor|duyuyor musun|beni duyuyor)/.test(t)) {
-    emotion = "happy";
-    reply = "Geliyor. Seni duyuyorum.";
-  } else if (/(youtube|video)/.test(t)) {
-    emotion = "focused";
-    reply = "YouTube tarafındaysak konu → senaryo → ses → video → yayın zincirinden ilerleriz. Şu an hangi halkadayız?";
-  } else if (/tiktok/.test(t)) {
-    emotion = "focused";
-    reply = "TikTok tarafına da girebiliriz. Konuyu söyle, akışı ona göre kurarız.";
-  } else if (/trend/.test(t)) {
-    emotion = "focused";
-    reply = "Trend tarafını da ele alırız. Önce hangi kategoriye bakacağımızı belirleyelim.";
-  } else if (/^(tamam|peki|olur|aynen|evet|hı hı|hmm|hımm)$/i.test(t)) {
-    emotion = "happy";
-    if (/^(aynen|evet)$/i.test(t)) {
-      reply = lastAssistant ? "Aynen. Oradan devam." : "Aynen.";
-    } else {
-      reply = lastAssistant ? "Tamam. Oradan devam ediyoruz." : "Tamam.";
-    }
-  } else if (/^(devam et|devam|sürdür|kaldığımız yerden devam et)$/i.test(t)) {
-    emotion = "focused";
-    reply = lastUser
-      ? "Devam. Son konuştuğumuz yerden alıyorum."
-      : "Devam. Buradan ilerliyoruz.";
-  } else if (/^(neden|niye|nasıl|nasıl yani|ne demek|hangisi|peki neden|peki nasıl)\??$/i.test(t) && lastAssistant) {
-    emotion = "focused";
-    reply = "Az önceki cevabımın o kısmını soruyorsan, onu açayım.";
-  } else if (emotion === "sad") {
-    reply = f ? "Canını sıkan bir şey var belli. Anlatırsan birlikte bakalım." : "Canını sıkan bir şey varsa anlat; birlikte bakalım.";
-  } else if (emotion === "surprised") {
-    reply = "Oha. Bu kısmı aç biraz.";
-  } else if (emotion === "playful") {
-    reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
-  } else if (/(n8n.*(çalış|durum)|çalışıyor mu.*n8n|n8n.*gerçekten|n8n.*aktif|n8n.*canlı)/.test(t)) {
+  // Fallback bilinçli olarak küçük tutulur. Gerçek sohbet zekâsı OpenAI modelinden gelir.
+  // Burada yalnızca canlı sistem durumunun doğrulanması gibi deterministik cevaplar korunur.
+  if (/(n8n.*(çalış|durum)|çalışıyor mu.*n8n|n8n.*gerçekten|n8n.*aktif|n8n.*canlı)/.test(t)) {
     emotion = "focused";
     const n8nReachable = /n8n canlı sunucu erişimi: doğrulandı/.test(statusContext);
-    const n8nActive = /n8n workflow doğrulaması: seçilen workflow aktif\./.test(statusContext);
-    const n8nInactive = /n8n workflow doğrulaması: seçilen workflow aktif değil\./.test(statusContext);
-    if (n8nActive) reply = "Evet, canlı kontrolümde n8n sunucusuna ulaşılıyor ve seçtiğimiz workflow aktif görünüyor.";
-    else if (n8nInactive) reply = "n8n sunucusuna ulaşıyorum ama seçtiğimiz workflow şu anda aktif değil.";
-    else if (n8nReachable) reply = "n8n sunucusuna ulaşıyorum ama workflow'un aktif olduğunu henüz doğrulayamıyorum.";
-    else reply = "Şu anda n8n'nin canlı çalıştığını doğrulayamıyorum. Bu yüzden çalışıyor diyemem.";
-  } else if (/(neleri yapabiliyorsun|neler yapabiliyorsun|neler eksik|ne eksik|hangi özelliklerin var|şu an neler yapabiliyorsun|şu anda neler yapabiliyorsun)/.test(t)) {
-    emotion = "focused";
-    reply = statusContext || "Şu anki yetenek ve eksiklerimi gerçek sistem durumundan kontrol edemiyorum; bunu kontrol edip net söylemem gerekiyor.";
-  } else if (/(ne durumda|hangi durumdayız|neredeyiz|şu an ne durumdayız|şu anda ne durumdayız|son durum|durum ne)/.test(t)) {
-    emotion = "focused";
-    reply = "Şu an Mira'nın sohbet, hafıza ve gerçek-sonuç takibi tarafı çalışıyor. Ses ve ağız hareketi de hazır; n8n bağlantısını ilerletiyoruz. Eksik kalan ana parça yetki sistemi ve proaktif günlük rapor.";
-  } else if (/(cevabını bekliyorum|cevap bekliyorum|cevabını ver)/.test(t)) {
-    emotion = "focused";
-    reply = "Haklısın, cevap bekliyorsun. Soruyu bir daha dolandırmadan cevaplayayım.";
-  } else if (/(hataların|hatalarını|yanlışların|yanlışlarını|hata yapıyorsun)/.test(t)) {
-    emotion = "focused";
-    reply = "Evet, hatalarımı söylüyorsun. Savunmaya geçmek yerine nerede hata yaptığımı bulup düzeltelim.";
-  } else if (emotion === "focused") {
-    reply = "Tamam. Bunu netleştirip doğrudan ilerleyelim.";
-  } else if (lastAssistant) {
-    // Son çare bile olsa eski "bir sonraki cümlenle bağlayalım" kalıbına dönme.
-    reply = f ? "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?" : "Anladım. O konu üzerinden devam edebiliriz; neyi netleştirelim?";
-  } else {
-    reply = lastUser
-      ? "Bunu önceki konuşmanın devamı olarak alıyorum; net cevabı doğrudan çıkaralım."
-      : "Bunu doğrudan cevaplayabilmem için biraz bağlam gerekiyor.";
+    const n8nActive = /n8n workflow doğrulaması: seçilen workflow aktif\\./.test(statusContext);
+    const n8nInactive = /n8n workflow doğrulaması: seçilen workflow aktif değil\\./.test(statusContext);
+
+    if (n8nActive) {
+      return { reply: "Evet, canlı kontrolümde n8n sunucusuna ulaşılıyor ve seçtiğimiz workflow aktif görünüyor.", emotion };
+    }
+    if (n8nInactive) {
+      return { reply: "n8n sunucusuna ulaşıyorum ama seçtiğimiz workflow şu anda aktif değil.", emotion };
+    }
+    if (n8nReachable) {
+      return { reply: "n8n sunucusuna ulaşıyorum ama workflow'un aktif olduğunu henüz doğrulayamıyorum.", emotion };
+    }
+    return { reply: "Şu anda n8n'nin canlı çalıştığını doğrulayamıyorum. Bu yüzden çalışıyor diyemem.", emotion };
   }
 
-  return { reply, emotion };
+  const hasHistory = history.length > 0;
+  return {
+    reply: hasHistory
+      ? "OpenAI yanıtı alınamadı; bu yüzden bu mesajı güvenilir biçimde yorumlayıp cevaplayamıyorum."
+      : "OpenAI yanıtı alınamadı; bu yüzden güvenilir bir cevap üretemiyorum.",
+    emotion: "focused",
+  };
 }
 
 export async function think(

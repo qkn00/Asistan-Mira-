@@ -1,4 +1,4 @@
-export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter";
+export type ModelProvider = "openai" | "gemini" | "claude" | "groq" | "openrouter";
 
 export type ModelTurn = { role: "user" | "assistant"; content: string };
 
@@ -131,6 +131,39 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
   throw new Error(lastError);
 }
 
+async function callGroq(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error("GROQ_API_KEY missing");
+
+  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+  const messages = [
+    { role: "system", content: request.system },
+    ...request.history.slice(-10),
+    { role: "user", content: request.message },
+  ];
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: 1200,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Groq ${res.status}: ${await readError(res)}`);
+
+  const data = await res.json();
+  const content = cleanText(data?.choices?.[0]?.message?.content);
+  if (!content) throw new Error("Groq returned empty content");
+
+  return { provider: "groq", model, content };
+}
+
 async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
@@ -207,14 +240,15 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   openai: callOpenAI,
   gemini: callGemini,
   claude: callClaude,
+  groq: callGroq,
   openrouter: callOpenRouter,
 };
 
 function providerOrder(): ModelProvider[] {
-  const configured = (process.env.MODEL_PROVIDER_ORDER || "gemini,claude,openrouter,openai")
+  const configured = (process.env.MODEL_PROVIDER_ORDER || "gemini,claude,groq,openrouter,openai")
     .split(",")
     .map((item) => item.trim().toLowerCase())
-    .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude" || item === "openrouter");
+    .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude" || item === "groq" || item === "openrouter");
 
   return [...new Set(configured)];
 }

@@ -28,7 +28,7 @@ function localReply(message: string, userName: string, persona: Persona, history
 
   // Önce doğrudan soruları yakala. Belirsiz bir fallback'e düşmeden kullanıcının
   // gerçekten sorduğu şeye cevap ver.
-  if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|görevin ne|görevini ne|amacın ne|ne yapıyorsun|kendini tanıt|adın ne)/.test(t)) {
+  if (/(sen kimsin|kimsin|sen nesin|ne iş yapıyorsun|görevin ne|görevini ne|görevini.*(anlat|açıkla)|amacın ne|ne yapıyorsun|kendini tanıt|kendini.*(anlat|tanıt)|adın ne)/.test(t)) {
     emotion = "focused";
     reply = f
       ? "Ben Mira'yım. Buradaki işim seninle konuşmak, yaptığımız işleri hatırlamak ve gerektiğinde onları birlikte yürütmek. Şimdilik bunun üzerine n8n ve otomasyon tarafını da bağlıyoruz."

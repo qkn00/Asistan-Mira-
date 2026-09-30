@@ -153,7 +153,7 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
 };
 
 function providerOrder(): ModelProvider[] {
-  const configured = (process.env.MODEL_PROVIDER_ORDER || "openai,gemini,claude")
+  const configured = (process.env.MODEL_PROVIDER_ORDER || "gemini,openai,claude")
     .split(",")
     .map((item) => item.trim().toLowerCase())
     .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude");

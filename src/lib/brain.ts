@@ -14,7 +14,7 @@ export function detectEmotion(text: string): Emotion {
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
-function localReply(message: string, userName: string, persona: Persona, history: Turn[] = []): { reply: string; emotion: Emotion } {
+function localReply(message: string, userName: string, persona: Persona, history: Turn[] = [], statusContext = ""): { reply: string; emotion: Emotion } {
   const t = message.toLocaleLowerCase("tr-TR").trim();
   const f = persona === "flirty";
   const lastAssistant = [...history].reverse().find((turn) => turn.role === "assistant")?.content?.trim() ?? "";
@@ -97,7 +97,7 @@ function localReply(message: string, userName: string, persona: Persona, history
     reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
   } else if (/(neleri yapabiliyorsun|neler yapabiliyorsun|neler eksik|ne eksik|hangi özelliklerin var|şu an neler yapabiliyorsun|şu anda neler yapabiliyorsun)/.test(t)) {
     emotion = "focused";
-    reply = "Şu an sohbet, hafıza ve yaptığımız işlerin durumunu takip edebiliyorum; sesli konuşma, ElevenLabs sesi ve sese bağlı ağız hareketi de hazır. n8n otomasyon bağlantısını ilerletiyoruz. Eksik kalan ana parçalar yetki sistemi, proaktif günlük rapor ve n8n'nin canlı olarak tam devreye alınması.";
+    reply = statusContext || "Şu anki yetenek ve eksiklerimi gerçek sistem durumundan kontrol edemiyorum; bunu kontrol edip net söylemem gerekiyor.";
   } else if (/(ne durumda|hangi durumdayız|neredeyiz|şu an ne durumdayız|şu anda ne durumdayız|son durum|durum ne)/.test(t)) {
     emotion = "focused";
     reply = "Şu an Mira'nın sohbet, hafıza ve gerçek-sonuç takibi tarafı çalışıyor. Ses ve ağız hareketi de hazır; n8n bağlantısını ilerletiyoruz. Eksik kalan ana parça yetki sistemi ve proaktif günlük rapor.";
@@ -125,6 +125,7 @@ export async function think(
   userName: string,
   persona: Persona = "flirty",
   memoryContext = "(Henüz kayıtlı önemli hafıza yok.)",
+  statusContext = "",
 ): Promise<{ reply: string; emotion: Emotion }> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return localReply(message, userName, persona, history);
@@ -168,6 +169,11 @@ Aşağıdaki son konuşma geçmişini dikkate al. Özellikle kullanıcının bir
 KALICI HAFIZA:
 ${memoryContext}
 
+GERÇEK SİSTEM DURUMU:
+${statusContext || "(Bu istekte canlı durum özeti sağlanmadı.)"}
+
+Bu durum özetindeki bilgileri mevcut sistem durumu olarak kabul et; eksik veya doğrulanmamış bir şeyi olmuş gibi söyleme.
+
 Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"playful"|"focused"}`,
           },
           ...history.slice(-10),
@@ -184,6 +190,6 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     return { reply: String(parsed.reply ?? "").trim() || localReply(message, userName, persona, history).reply, emotion };
   } catch (e) {
     console.error("OpenAI error, falling back:", e);
-    return localReply(message, userName, persona, history);
+    return localReply(message, userName, persona, history, statusContext);
   }
 }

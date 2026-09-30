@@ -42,8 +42,8 @@ function localReply(message: string, userName: string, persona: Persona, history
   const hasHistory = history.length > 0;
   return {
     reply: hasHistory
-      ? "OpenAI yanıtı alınamadı; bu yüzden bu mesajı güvenilir biçimde yorumlayıp cevaplayamıyorum."
-      : "OpenAI yanıtı alınamadı; bu yüzden güvenilir bir cevap üretemiyorum.",
+      ? "Hiçbir modelden yanıt alınamadı; bu yüzden bu mesajı güvenilir biçimde yorumlayıp cevaplayamıyorum."
+      : "Hiçbir modelden yanıt alınamadı; bu yüzden güvenilir bir cevap üretemiyorum.",
     emotion: "focused",
   };
 }
@@ -108,7 +108,7 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     try {
       parsed = JSON.parse(rawContent);
     } catch {
-      const match = rawContent.match(/\{[\\s\\S]*\}/);
+      const match = rawContent.match(/\{[\s\S]*\}/);
       if (!match) throw new Error(`${result.provider} returned non-JSON content`);
       parsed = JSON.parse(match[0]);
     }

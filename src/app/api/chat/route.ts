@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getN8nStatus } from "@/lib/n8n-status";
 import { db } from "@/db";
 import { contentItems, learningProgress, messages, operations, tasks, trends } from "@/db/schema";
 import { desc, eq, sql } from "drizzle-orm";
@@ -120,6 +121,8 @@ export async function POST(req: Request) {
     operationalContext ? "\nAKTİF İŞ DURUMU:\n" + operationalContext : "",
   ].join("\n");
 
+  const n8nStatus = await getN8nStatus();
+
   const statusContext = [
     "Veritabanı: " + (databaseAvailable ? "bağlı ve okunabiliyor." : "bağlı değil; bu istek geçici verilerle yanıtlanıyor."),
     "Kalıcı hafıza: " + (databaseAvailable ? (memories.length ? "okunabiliyor; son önemli kayıtlar yüklendi." : "çalışıyor fakat şu an önemli kayıt bulunamadı.") : "bu istekte doğrulanamadı."),
@@ -129,7 +132,9 @@ export async function POST(req: Request) {
     "OpenAI sohbet motoru: " + (process.env.OPENAI_API_KEY ? "yapılandırılmış." : "API anahtarı yok; yerel cevap motoru kullanılabilir."),
     "ElevenLabs TTS: " + (process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID ? "yapılandırılmış." : "tam yapılandırılmamış; tarayıcı sesi fallback olabilir."),
     "n8n otomasyon altyapısı: " + (process.env.MIRA_N8N_SECRET ? "güvenli bağlantı anahtarı yapılandırılmış." : "MIRA_N8N_SECRET yapılandırılmamış."),
-    "n8n canlı workflow aktivasyonu: " + "bu sohbet isteğinden doğrulanmıyor; Mira bunu olmuş gibi söylememeli.",
+    "n8n canlı sunucu erişimi: " + (n8nStatus.reachable ? "doğrulandı." : "doğrulanamadı.") + " " + n8nStatus.message,
+    "n8n workflow doğrulaması: " + (n8nStatus.workflowVerified ? (n8nStatus.workflowActive ? "seçilen workflow aktif." : "seçilen workflow aktif değil.") : "doğrulanmadı."),
+    "n8n canlı workflow aktivasyonu: artık yalnızca canlı n8n kontrolü doğrularsa aktif kabul edilir.",
     "Yetki sistemi (beyaz/sarı/kırmızı): henüz tamamlanmış olarak işaretlenmemeli.",
     "Proaktif sabah raporu: altyapısı var; nihai otomatik davranış ayrıca tamamlanmalı.",
   ].join("\n");

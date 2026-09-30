@@ -80,27 +80,27 @@ ${researchContext}`;
 
       const { reply, emotion } = await think(
         text,
-        recent,
+        [],
         s.userName,
         s.persona === "sweet" ? "sweet" : "flirty",
-        memoryContext,
-        statusContext + "\nCANLI VİDEO ARAŞTIRMASI:\n" + researchSystem,
+        "",
+        "Canlı video araştırması: yalnızca aşağıdaki doğrulanmış YouTube Data API verilerini kullan.\n" + researchSystem,
       );
 
-      if (databaseAvailable) {
-        try {
-          const [userMsg] = await db.insert(messages).values({ role: "user", content: text, emotion: detectEmotion(text) }).returning();
-          const [assistantMsg] = await db.insert(messages).values({ role: "assistant", content: reply, emotion }).returning();
-          await db.insert(operations).values({
-            action: "live_video_research",
-            summary: "YouTube Data API ile canlı Shorts araştırması yapıldı",
-            status: "success",
-            metadata: research,
-          });
-          return NextResponse.json({ user: userMsg, assistant: assistantMsg, persisted: true, research });
-        } catch (error) {
-          console.error("Live video research persistence failed:", error);
-        }
+      let researchPersisted = false;
+      try {
+        await db.execute(sql`select 1`);
+        const [userMsg] = await db.insert(messages).values({ role: "user", content: text, emotion: detectEmotion(text) }).returning();
+        const [assistantMsg] = await db.insert(messages).values({ role: "assistant", content: reply, emotion }).returning();
+        await db.insert(operations).values({
+          action: "live_video_research",
+          summary: "YouTube Data API ile canlı Shorts araştırması yapıldı",
+          status: "success",
+          metadata: research,
+        });
+        return NextResponse.json({ user: userMsg, assistant: assistantMsg, persisted: true, research });
+      } catch (error) {
+        console.error("Live video research persistence failed:", error);
       }
 
       return NextResponse.json({

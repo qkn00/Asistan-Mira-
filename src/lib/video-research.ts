@@ -1,0 +1,122 @@
+export type VideoResearchItem = {
+  rank: number;
+  title: string;
+  channel: string;
+  publishedAt: string;
+  views: number;
+  likes: number;
+  comments: number;
+  videoId: string;
+  url: string;
+};
+
+export type VideoResearchResult = {
+  source: "YouTube Data API";
+  searchedAt: string;
+  windowHours: number;
+  regionCode: string;
+  items: VideoResearchItem[];
+};
+
+export async function researchShortVideos(
+  query = "",
+  windowHours = 24,
+  regionCode = "TR",
+  maxResults = 10,
+): Promise<VideoResearchResult> {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) throw new Error("YOUTUBE_API_KEY missing");
+
+  const safeWindow = Math.min(Math.max(windowHours, 1), 168);
+  const publishedAfter = new Date(Date.now() - safeWindow * 60 * 60 * 1000).toISOString();
+
+  const searchParams = new URLSearchParams({
+    part: "snippet",
+    type: "video",
+    videoDuration: "short",
+    order: "viewCount",
+    publishedAfter,
+    regionCode,
+    maxResults: String(Math.min(Math.max(maxResults, 1), 25)),
+    key,
+  });
+  if (query.trim()) searchParams.set("q", query.trim().slice(0, 100));
+
+  const searchRes = await fetch(
+    "https://www.googleapis.com/youtube/v3/search?" + searchParams.toString(),
+    { cache: "no-store" },
+  );
+  if (!searchRes.ok) {
+    const body = (await searchRes.text()).slice(0, 600);
+    throw new Error(`YouTube search ${searchRes.status}: ${body}`);
+  }
+
+  const searchData = await searchRes.json();
+  const ids = (searchData.items ?? [])
+    .map((item: { id?: { videoId?: string } }) => item.id?.videoId)
+    .filter((id: unknown): id is string => typeof id === "string");
+
+  if (!ids.length) {
+    return {
+      source: "YouTube Data API",
+      searchedAt: new Date().toISOString(),
+      windowHours: safeWindow,
+      regionCode,
+      items: [],
+    };
+  }
+
+  const videoParams = new URLSearchParams({
+    part: "snippet,statistics,contentDetails",
+    id: ids.join(","),
+    maxResults: String(ids.length),
+    key,
+  });
+  const videoRes = await fetch(
+    "https://www.googleapis.com/youtube/v3/videos?" + videoParams.toString(),
+    { cache: "no-store" },
+  );
+  if (!videoRes.ok) {
+    const body = (await videoRes.text()).slice(0, 600);
+    throw new Error(`YouTube videos ${videoRes.status}: ${body}`);
+  }
+
+  const videoData = await videoRes.json();
+  const rankById = new Map(ids.map((id, index) => [id, index]));
+
+  const items = (videoData.items ?? [])
+    .map((item: {
+      id?: string;
+      snippet?: { title?: string; channelTitle?: string; publishedAt?: string };
+      statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+    }) => {
+      const id = item.id ?? "";
+      return {
+        id,
+        rank: (rankById.get(id) ?? 999) + 1,
+        title: item.snippet?.title ?? "(başlıksız)",
+        channel: item.snippet?.channelTitle ?? "(kanal bilinmiyor)",
+        publishedAt: item.snippet?.publishedAt ?? "",
+        views: Number(item.statistics?.viewCount ?? 0),
+        likes: Number(item.statistics?.likeCount ?? 0),
+        comments: Number(item.statistics?.commentCount ?? 0),
+        videoId: id,
+        url: `https://www.youtube.com/shorts/${id}`,
+      };
+    })
+    .filter((item: { videoId: string }) => Boolean(item.videoId))
+    .sort((a: { views: number }, b: { views: number }) => b.views - a.views)
+    .slice(0, maxResults)
+    .map((item: Omit<VideoResearchItem, "rank">, index: number) => ({
+      ...item,
+      rank: index + 1,
+    }));
+
+  return {
+    source: "YouTube Data API",
+    searchedAt: new Date().toISOString(),
+    windowHours: safeWindow,
+    regionCode,
+    items,
+  };
+}

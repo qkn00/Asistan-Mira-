@@ -7,6 +7,7 @@ import { think, detectEmotion } from "@/lib/brain";
 import { getSettings } from "@/lib/settings";
 import { getDailyReport, reportToSpeech } from "@/lib/report";
 import { listImportantMemories, remember } from "@/lib/memory";
+import { researchShortVideos } from "@/lib/video-research";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,77 @@ export async function POST(req: Request) {
   const rawSettings = await safeSettings();
   const s = rawSettings.userName === "Gökhan" ? { ...rawSettings, userName: "patron" } : rawSettings;
   const lower = text.toLocaleLowerCase("tr-TR");
+
+  // Live video research: only answer current Shorts/trend questions from
+  // freshly fetched YouTube Data API results. Never let the language model
+  // invent current view counts, titles or rankings.
+  const asksLiveVideoResearch =
+    /(anlık|şu an|şuan|güncel|bugün|son 24 saat|son 24 saatte|trend|viral|en çok izlenen|en cok izlenen|izlenme)/i.test(lower) &&
+    /(video|short|shorts|tiktok|reels|izlen|trend|viral)/i.test(lower);
+
+  if (asksLiveVideoResearch) {
+    try {
+      const queryMatch = text.match(/(?:konu|konusunda|hakkında|hakkinda)\s+(.+)$/i);
+      const query = queryMatch?.[1]?.trim() ?? "";
+      const research = await researchShortVideos(query, 24, "TR", 10);
+
+      const researchContext = research.items.length
+        ? research.items.map((item) =>
+            `#${item.rank} | ${item.title} | ${item.channel} | ${item.views.toLocaleString("tr-TR")} görüntülenme | ${item.likes.toLocaleString("tr-TR")} beğeni | ${item.comments.toLocaleString("tr-TR")} yorum | ${item.url}`
+          ).join("\n")
+        : "Son 24 saatte eşleşen Shorts bulunamadı.";
+
+      const researchSystem = `Sen Mira'nın canlı video araştırma modülüsün.
+Sadece aşağıdaki doğrulanmış YouTube Data API sonuçlarını kullan.
+Bu sonuçlarda olmayan video adı, izlenme sayısı, sıralama, kanal veya trend bilgisi UYDURMA.
+Kullanıcı anlık/güncel video analizi istedi. Sonuçları kısa ve net Türkçe ile özetle.
+"Anlık" verinin araştırma zamanı: ${research.searchedAt}.
+Arama penceresi: son ${research.windowHours} saat. Bölge: ${research.regionCode}.
+Kaynak: YouTube Data API.
+Her maddede mümkünse video başlığı, kanal ve izlenme sayısını ver. Sonunda kaynağın YouTube Data API olduğunu ve verilerin araştırma anına ait olduğunu açıkça belirt.
+VERİ:
+${researchContext}`;
+
+      const { reply, emotion } = await think(
+        text,
+        recent,
+        s.userName,
+        s.persona === "sweet" ? "sweet" : "flirty",
+        memoryContext,
+        statusContext + "\nCANLI VİDEO ARAŞTIRMASI:\n" + researchSystem,
+      );
+
+      if (databaseAvailable) {
+        try {
+          const [userMsg] = await db.insert(messages).values({ role: "user", content: text, emotion: detectEmotion(text) }).returning();
+          const [assistantMsg] = await db.insert(messages).values({ role: "assistant", content: reply, emotion }).returning();
+          await db.insert(operations).values({
+            action: "live_video_research",
+            summary: "YouTube Data API ile canlı Shorts araştırması yapıldı",
+            status: "success",
+            metadata: research,
+          });
+          return NextResponse.json({ user: userMsg, assistant: assistantMsg, persisted: true, research });
+        } catch (error) {
+          console.error("Live video research persistence failed:", error);
+        }
+      }
+
+      return NextResponse.json({
+        user: { id: -Date.now(), role: "user", content: text, emotion: detectEmotion(text), createdAt: new Date().toISOString() },
+        assistant: { id: -Date.now() - 1, role: "assistant", content: reply, emotion, createdAt: new Date().toISOString() },
+        persisted: false,
+        research,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error("Mira live video research failed:", reason);
+      const reply = /YOUTUBE_API_KEY missing/.test(reason)
+        ? "Anlık video araştırmasını açacak altyapıyı ekledim; şu anda yalnızca YouTube API anahtarı eksik. Anahtarı Railway'e eklediğimiz anda Mira gerçek veriyi çekip kaynaklı analiz yapacak. Anahtar olmadan sayı veya sıralama uydurmayacağım."
+        : `Anlık video araştırması başarısız oldu: ${reason.slice(0, 300)}`;
+      return NextResponse.json({ error: reply }, { status: 503 });
+    }
+  }
 
   // The chat must remain usable even before Railway PostgreSQL is connected.
   // Persistence is attempted first; if it is unavailable, Mira answers

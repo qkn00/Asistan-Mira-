@@ -97,7 +97,13 @@ function localReply(message: string, userName: string, persona: Persona, history
     reply = f ? "Hah 😏 Tam da bunu beklemiyordum." : "Hah, iyiymiş.";
   } else if (/(n8n.*(çalış|durum)|çalışıyor mu.*n8n|n8n.*gerçekten|n8n.*aktif|n8n.*canlı)/.test(t)) {
     emotion = "focused";
-    reply = "Şu an bunu canlı n8n çalışmasından doğrulayamıyorum. Mira tarafında n8n bağlantı altyapısı var, ama workflow'un gerçekten aktif çalıştığını bu sohbetten doğrulamadan 'çalışıyor' diyemem.";
+    const n8nReachable = /n8n canlı sunucu erişimi: doğrulandı/.test(statusContext);
+    const n8nActive = /n8n workflow doğrulaması: seçilen workflow aktif\./.test(statusContext);
+    const n8nInactive = /n8n workflow doğrulaması: seçilen workflow aktif değil\./.test(statusContext);
+    if (n8nActive) reply = "Evet, canlı kontrolümde n8n sunucusuna ulaşılıyor ve seçtiğimiz workflow aktif görünüyor.";
+    else if (n8nInactive) reply = "n8n sunucusuna ulaşıyorum ama seçtiğimiz workflow şu anda aktif değil.";
+    else if (n8nReachable) reply = "n8n sunucusuna ulaşıyorum ama workflow'un aktif olduğunu henüz doğrulayamıyorum.";
+    else reply = "Şu anda n8n'nin canlı çalıştığını doğrulayamıyorum. Bu yüzden çalışıyor diyemem.";
   } else if (/(neleri yapabiliyorsun|neler yapabiliyorsun|neler eksik|ne eksik|hangi özelliklerin var|şu an neler yapabiliyorsun|şu anda neler yapabiliyorsun)/.test(t)) {
     emotion = "focused";
     reply = statusContext || "Şu anki yetenek ve eksiklerimi gerçek sistem durumundan kontrol edemiyorum; bunu kontrol edip net söylemem gerekiyor.";

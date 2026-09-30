@@ -250,7 +250,21 @@ function providerOrder(): ModelProvider[] {
     .map((item) => item.trim().toLowerCase())
     .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude" || item === "groq" || item === "openrouter");
 
-  return [...new Set(configured)];
+  const unique = [...new Set(configured)];
+
+  // If Groq is configured in Railway but the older MODEL_PROVIDER_ORDER
+  // variable does not list it, insert it after Claude so the new key is
+  // actually exercised before the OpenRouter fallback.
+  if (process.env.GROQ_API_KEY && !unique.includes("groq")) {
+    const insertAt = unique.includes("claude")
+      ? unique.indexOf("claude") + 1
+      : unique.includes("gemini")
+        ? unique.indexOf("gemini") + 1
+        : 0;
+    unique.splice(insertAt, 0, "groq");
+  }
+
+  return unique;
 }
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {

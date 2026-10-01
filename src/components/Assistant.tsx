@@ -433,7 +433,7 @@ export default function Assistant() {
     setMsgs([]);
   };
 
-  const miraSrc = "data:image/jpeg;base64,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";
+  const miraSrc = MIRA_AVATAR;
   const activeSrc = miraSrc;
   const layers = [
     ...OUTFITS.map((o) => o.src),
@@ -456,8 +456,8 @@ export default function Assistant() {
       <div className="pointer-events-none absolute inset-0 bg-[#0b0718]/60" />
 
       {/* ===== Avatar stage (never covered) ===== */}
-      <main className="relative z-10 flex min-h-0 flex-[1.15] flex-col p-2 md:flex-1 md:p-4">
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border border-violet-400/20 shadow-2xl shadow-violet-900/40">
+      <main className="absolute inset-0 z-10 flex min-h-0 flex-col p-0 md:relative md:inset-auto md:flex-1 md:p-4">
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-none border-0 shadow-2xl shadow-violet-900/40 md:rounded-3xl md:border md:border-violet-400/20">
           <div
             ref={faceRef}
             className="absolute inset-0 will-change-transform transition-[filter] duration-700"
@@ -466,7 +466,7 @@ export default function Assistant() {
             <img
               src={miraSrc}
               alt="Mira dijital asistan"
-              className="absolute inset-0 h-full w-full object-cover object-center"
+              className="absolute inset-0 h-full w-full object-cover object-center scale-[1.01]"
             />
             <div
               ref={mouthRef}
@@ -499,7 +499,7 @@ export default function Assistant() {
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/70 to-transparent" />
 
           {/* Top badges (small, in corners) */}
-          <div className="glass absolute left-2 top-2 flex items-center gap-2 rounded-2xl px-2.5 py-1.5 md:left-3 md:top-3">
+          <div className="glass absolute left-3 top-3 z-30 flex items-center gap-2 rounded-2xl px-2.5 py-1.5 shadow-lg shadow-black/30 md:left-5 md:top-5">
             <img src={miraSrc} alt="" className="h-8 w-8 rounded-full object-cover object-top ring-2 ring-fuchsia-400/60 md:h-10 md:w-10" />
             <div className="leading-tight">
               <div className="flex items-center gap-1.5 text-sm font-semibold">
@@ -508,7 +508,7 @@ export default function Assistant() {
               <div className="text-[11px] text-white/70">Her zaman seninle 💗</div>
             </div>
           </div>
-          <div className="glass absolute right-2 top-2 rounded-2xl px-3 py-1.5 text-xs md:right-3 md:top-3 md:text-sm">
+          <div className="glass absolute right-3 top-3 z-30 rounded-2xl px-3 py-1.5 text-xs shadow-lg shadow-black/30 md:right-5 md:top-5 md:text-sm">
             <div className="flex items-center gap-1.5 font-medium">
               <span className={`h-2 w-2 rounded-full ${speaking || listening ? "animate-pulse bg-fuchsia-400" : "bg-green-400"}`} /> {status}
             </div>
@@ -519,7 +519,7 @@ export default function Assistant() {
 
           {/* Subtitle */}
           {subtitle && (
-            <div className="pointer-events-none absolute inset-x-3 bottom-24 text-center md:bottom-28">
+            <div className="pointer-events-none absolute inset-x-3 bottom-[44%] z-20 text-center md:bottom-28">
               <div className="fade-up inline-block max-w-2xl rounded-2xl bg-black/55 px-4 py-2 text-sm leading-relaxed backdrop-blur md:text-lg">
                 {displaySubtitleWords.map((w, i) => (
                   <span key={i} className={`transition-colors ${i === wordIndex ? "text-fuchsia-300" : i < wordIndex ? "text-white" : "text-white/55"}`}>
@@ -531,8 +531,8 @@ export default function Assistant() {
           )}
 
           {/* Voice controls */}
-          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 flex-col items-center">
-            <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
+          <div className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center md:bottom-3">
+            <div className="glass flex items-center gap-3 rounded-full border border-violet-300/25 bg-black/45 px-4 py-2 shadow-[0_0_35px_rgba(124,58,237,0.28)]">
               <div ref={barsRef} className="flex h-8 items-center gap-[3px]">
                 {Array.from({ length: 9 }).map((_, i) => (
                   <span key={i} className="h-8 w-[3px] origin-center rounded-full bg-gradient-to-b from-fuchsia-400 to-violet-500" />
@@ -576,8 +576,8 @@ export default function Assistant() {
       </main>
 
       {/* ===== Side panel ===== */}
-      <aside className="glass relative z-10 m-2 mt-0 flex min-h-0 flex-1 flex-col rounded-3xl md:m-4 md:ml-0 md:w-[400px] md:flex-none">
-        <div className="flex gap-1 border-b border-white/10 p-1.5">
+      <aside className="glass absolute inset-x-2 bottom-2 z-40 flex h-[43dvh] min-h-0 flex-col rounded-[28px] border-white/15 bg-[#0b0718]/55 shadow-2xl shadow-black/50 backdrop-blur-xl md:relative md:inset-auto md:bottom-auto md:z-10 md:m-4 md:ml-0 md:h-auto md:flex-1 md:w-[400px] md:flex-none">
+        <div className="flex gap-1 border-b border-white/10 bg-black/10 p-1.5">
           {NAV.map((n) => (
             <button
               key={n.id}
@@ -598,9 +598,9 @@ export default function Assistant() {
               <span className="text-xs text-white/50">Sohbet geçmişi</span>
               <button onClick={clearChat} className="text-xs text-white/50 hover:text-white">Temizle</button>
             </div>
-            <div ref={chatRef} className="no-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+            <div ref={chatRef} className="no-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto p-3 pb-4">
               {msgs.length === 0 && (
-                <div className="fade-up rounded-2xl rounded-tl-sm bg-violet-900/60 p-3 text-sm">
+                <div className="fade-up rounded-2xl rounded-tl-sm border border-white/10 bg-[#1d1238]/80 p-3 text-sm shadow-lg backdrop-blur-md">
                   {settings.persona === "flirty"
                     ? <>Selam patron... Nasılsın? 💋 Seni bekliyordum. Yaz ya da mikrofona bas, konuşalım. Bu akşam ne giymemi istersin? Gardıroba bir bak 😉</>
                     : <>Selam patron! Nasılsın? 😊 Benimle yazarak ya da mikrofona basarak konuşabilirsin. Konuşurken sesim kelimelerine eşlik edecek, duygularım yüzüme yansıyacak.</>}
@@ -608,7 +608,7 @@ export default function Assistant() {
               )}
               {msgs.map((m) => (
                 <div key={m.id} className={`fade-up flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl p-3 text-sm ${m.role === "user" ? "rounded-tr-sm bg-fuchsia-600/80" : "rounded-tl-sm bg-violet-900/70"}`}>
+                  <div className={`max-w-[88%] rounded-2xl border border-white/10 p-3 text-sm shadow-lg shadow-black/20 backdrop-blur-md ${m.role === "user" ? "rounded-tr-sm bg-fuchsia-600/75" : "rounded-tl-sm bg-[#1d1238]/80"}`}>
                     {renderMessageContent(m.content)}
                   </div>
                 </div>
@@ -797,7 +797,7 @@ export default function Assistant() {
             e.preventDefault();
             send();
           }}
-          className="m-2 flex items-center gap-2 rounded-full border border-violet-400/30 bg-black/30 py-1.5 pl-4 pr-1.5"
+          className="m-2 flex items-center gap-2 rounded-full border border-violet-300/25 bg-black/45 py-1.5 pl-4 pr-1.5 shadow-[0_0_30px_rgba(124,58,237,0.18)] backdrop-blur-xl"
         >
           <input
             value={input}

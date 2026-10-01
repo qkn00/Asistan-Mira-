@@ -466,7 +466,7 @@ export default function Assistant() {
             <img
               src={miraSrc}
               alt="Mira dijital asistan"
-              className="absolute inset-0 h-full w-full object-cover object-center scale-[1.01]"
+              className="absolute left-1/2 top-0 h-auto w-full max-h-full -translate-x-1/2 object-contain object-top scale-[0.88] origin-top md:inset-0 md:h-full md:w-full md:translate-x-0 md:object-cover md:object-center md:scale-[1.01] md:origin-center"
             />
             <div
               ref={mouthRef}

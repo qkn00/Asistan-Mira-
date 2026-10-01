@@ -10,6 +10,56 @@ type Settings = { userName: string; outfit: string; voiceRate: number; voicePitc
 type Custom = { id: number; label: string };
 type Tab = "chat" | "wardrobe" | "emotions" | "settings";
 
+function highlightCode(code: string, language?: string) {
+  const lang = (language || "").toLowerCase();
+  const keywordPattern =
+    /\\b(const|let|var|function|return|if|else|for|while|async|await|new|class|import|from|export|default|try|catch|throw|true|false|null|undefined|def|print|in|and|or|not|None|True|False|echo|fi|then|do|done)\\b/g;
+  const tokenPattern =
+    /(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*|#[^\\n]*|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|\\b\\d+(?:\\.\\d+)?\\b)/g;
+
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  const addPlain = (text: string) => {
+    if (!text) return;
+    let last = 0;
+    let keywordMatch: RegExpExecArray | null;
+    keywordPattern.lastIndex = 0;
+    while ((keywordMatch = keywordPattern.exec(text))) {
+      if (keywordMatch.index > last) nodes.push(text.slice(last, keywordMatch.index));
+      nodes.push(
+        <span key={nodes.length} className="text-fuchsia-300">
+          {keywordMatch[0]}
+        </span>,
+      );
+      last = keywordMatch.index + keywordMatch[0].length;
+    }
+    if (last < text.length) nodes.push(text.slice(last));
+  };
+
+  while ((match = tokenPattern.exec(code))) {
+    if (match.index > cursor) addPlain(code.slice(cursor, match.index));
+    const token = match[0];
+    const isComment = token.startsWith("//") || token.startsWith("/*") || token.startsWith("#");
+    const isString = token.startsWith('"') || token.startsWith("'");
+    const cls = isComment
+      ? "text-white/40 italic"
+      : isString
+        ? "text-emerald-300"
+        : "text-amber-300";
+    nodes.push(
+      <span key={nodes.length} className={cls}>
+        {token}
+      </span>,
+    );
+    cursor = match.index + token.length;
+  }
+
+  if (cursor < code.length) addPlain(code.slice(cursor));
+  return nodes;
+}
+
 function CodeBlock({ code, language }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -23,16 +73,25 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
     }
   };
 
+  const lines = code.split("\\n");
+
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/55">
+    <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/55 shadow-lg shadow-black/20">
       <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/55">
-        <span>{language || "kod"}</span>
-        <button type="button" onClick={copyCode} className="rounded-md px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white">
+        <span className="font-medium uppercase tracking-wide">{language || "kod"}</span>
+        <button type="button" onClick={copyCode} className="rounded-md px-2 py-1 text-white/70 transition hover:bg-white/10 hover:text-white">
           {copied ? "Kopyalandı ✓" : "Kopyala"}
         </button>
       </div>
       <pre className="max-h-[420px] overflow-auto p-3 text-[12px] leading-relaxed text-white/90">
-        <code>{code}</code>
+        <code>
+          {lines.map((line, index) => (
+            <span key={index} className="block">
+              <span className="mr-3 inline-block w-5 select-none text-right text-[10px] text-white/20">{index + 1}</span>
+              {highlightCode(line, language)}
+            </span>
+          ))}
+        </code>
       </pre>
     </div>
   );

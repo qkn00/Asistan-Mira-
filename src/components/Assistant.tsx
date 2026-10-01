@@ -179,34 +179,51 @@ export default function Assistant() {
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [msgs, thinking]);
 
-  // Lip-sync animation: drive face micro-motion + waveform from amplitude
+  // Lip-sync: smooth the real TTS amplitude so Mira's mouth moves naturally
+  // instead of snapping on every audio-frame. The face motion remains subtle.
   useEffect(() => {
     let raf = 0;
+    let smoothed = 0;
     const tick = () => {
-      const a = ampRef.current;
+      const raw = Math.max(0, Math.min(1, ampRef.current));
+      const target = speaking ? Math.max(0, raw - 0.035) : 0;
+      smoothed += (target - smoothed) * (speaking ? 0.22 : 0.12);
+      const a = Math.max(0, Math.min(1, smoothed));
       const t = performance.now() / 1000;
+
       if (faceRef.current) {
-        const nod = a * 2.2;
-        const sway = Math.sin(t * 1.3) * (speaking ? 0.6 : 0.25);
-        faceRef.current.style.transform = `translateY(${-nod}px) rotate(${sway * 0.4}deg) scale(${1.03 + a * 0.006})`;
+        const nod = speaking ? a * 1.25 : 0;
+        const sway = Math.sin(t * 1.3) * (speaking ? 0.35 : 0.12);
+        faceRef.current.style.transform =
+          \`translateY(\${-nod}px) rotate(\${sway * 0.25}deg) scale(\${1.015 + a * 0.004})\`;
       }
+
       if (mouthRef.current) {
-        // Audio-driven mouth aperture synchronized to the real TTS waveform.
-        const openness = speaking ? Math.max(0, Math.min(1, a)) : 0;
-        const scaleY = 0.12 + openness * 1.55;
-        const scaleX = 0.72 + openness * 0.34;
-        mouthRef.current.style.transform = `translate(-50%, -50%) scale(${scaleX}, ${scaleY})`;
-        mouthRef.current.style.opacity = speaking ? String(0.35 + openness * 0.55) : "0";
+        // The mouth sits around the reference portrait's mouth position.
+        // Audio amplitude controls both aperture and width.
+        const scaleY = speaking ? 0.08 + a * 1.35 : 0.08;
+        const scaleX = speaking ? 0.78 + a * 0.28 : 0.78;
+        mouthRef.current.style.transform =
+          \`translate(-50%, -50%) scale(\${scaleX}, \${scaleY})\`;
+        mouthRef.current.style.opacity = speaking
+          ? String(0.18 + a * 0.62)
+          : "0";
       }
+
       if (barsRef.current) {
         const bars = barsRef.current.children;
         for (let i = 0; i < bars.length; i++) {
           const el = bars[i] as HTMLElement;
           const phase = Math.sin(t * 9 + i * 0.9) * 0.5 + 0.5;
-          const h = speaking ? 0.18 + a * (0.4 + phase * 0.6) : listening ? 0.2 + phase * 0.35 : 0.12;
-          el.style.transform = `scaleY(${h})`;
+          const h = speaking
+            ? 0.18 + a * (0.4 + phase * 0.6)
+            : listening
+              ? 0.2 + phase * 0.35
+              : 0.12;
+          el.style.transform = \`scaleY(\${h})\`;
         }
       }
+
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -456,7 +473,7 @@ export default function Assistant() {
             <div
               ref={mouthRef}
               aria-hidden
-              className="pointer-events-none absolute left-1/2 top-1/2 z-20 h-[9px] w-[64px] -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-[#5b263e]/90 shadow-[0_1px_4px_rgba(40,8,24,0.45)]"
+              className="pointer-events-none absolute left-1/2 top-[44%] z-20 h-[10px] w-[58px] -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-[#5b263e]/90 shadow-[0_1px_4px_rgba(40,8,24,0.45)]"
               style={{ transformOrigin: "50% 50%", opacity: 0 }}
             />
             <div className={`absolute inset-0 bg-gradient-to-t ${EMOTIONS[emotion].tint} to-transparent to-40% transition-all duration-700`} />

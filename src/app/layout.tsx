@@ -3,6 +3,13 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0b0718",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Mira",
+  },
   title: "Bilgi Dozu • Dijital Asistan",
   description: "Konuşan, duygularını yüzüne yansıtan kişisel dijital asistan.",
 };

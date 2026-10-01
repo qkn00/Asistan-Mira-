@@ -432,7 +432,8 @@ export default function Assistant() {
     setMsgs([]);
   };
 
-  const activeSrc = emotion !== "happy" && EMOTIONS[emotion].src ? EMOTIONS[emotion].src! : outfitSrc(settings.outfit);
+  const miraSrc = "/avatar/mira-reference.jpg";
+  const activeSrc = miraSrc;
   const layers = [
     ...OUTFITS.map((o) => o.src),
     ...customs.map((c) => `/api/outfits/${c.id}`),
@@ -461,15 +462,11 @@ export default function Assistant() {
             className="absolute inset-0 will-change-transform transition-[filter] duration-700"
             style={{ transformOrigin: "50% 45%", filter: glam ? "saturate(1.15) contrast(1.06) brightness(1.04)" : "none" }}
           >
-            {layers.map((src) => (
-              <img
-                key={src}
-                src={src}
-                alt="Dijital asistan"
-                className="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700"
-                style={{ opacity: src === activeSrc ? 1 : 0 }}
-              />
-            ))}
+            <img
+              src={miraSrc}
+              alt="Mira dijital asistan"
+              className="absolute inset-0 h-full w-full object-cover object-center"
+            />
             <div
               ref={mouthRef}
               aria-hidden
@@ -502,7 +499,7 @@ export default function Assistant() {
 
           {/* Top badges (small, in corners) */}
           <div className="glass absolute left-2 top-2 flex items-center gap-2 rounded-2xl px-2.5 py-1.5 md:left-3 md:top-3">
-            <img src={outfitSrc(settings.outfit)} alt="" className="h-8 w-8 rounded-full object-cover ring-2 ring-fuchsia-400/60 md:h-10 md:w-10" />
+            <img src={miraSrc} alt="" className="h-8 w-8 rounded-full object-cover object-top ring-2 ring-fuchsia-400/60 md:h-10 md:w-10" />
             <div className="leading-tight">
               <div className="flex items-center gap-1.5 text-sm font-semibold">
                 Dijital Asistanın <span className="h-2 w-2 rounded-full bg-green-400" />

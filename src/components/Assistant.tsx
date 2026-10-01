@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { EMOTIONS, OUTFITS, FLIRTY_EMOJIS, outfitSrc, isEmotion, type Emotion } from "@/lib/avatar";
 import { useSpeaker } from "./useSpeaker";
 
@@ -10,14 +11,11 @@ type Settings = { userName: string; outfit: string; voiceRate: number; voicePitc
 type Custom = { id: number; label: string };
 type Tab = "chat" | "wardrobe" | "emotions" | "settings";
 
-function highlightCode(code: string, language?: string) {
-  const lang = (language || "").toLowerCase();
-  const keywordPattern =
-    /\\b(const|let|var|function|return|if|else|for|while|async|await|new|class|import|from|export|default|try|catch|throw|true|false|null|undefined|def|print|in|and|or|not|None|True|False|echo|fi|then|do|done)\\b/g;
-  const tokenPattern =
-    /(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*|#[^\\n]*|"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'|\\b\\d+(?:\\.\\d+)?\\b)/g;
+function highlightCode(code: string, language?: string): ReactNode[] {
+  const keywordPattern = /\b(const|let|var|function|return|if|else|for|while|async|await|new|class|import|from|export|default|try|catch|throw|true|false|null|undefined|def|print|in|and|or|not|None|True|False|echo|fi|then|do|done)\b/g;
+  const tokenPattern = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\/\/.*|#.*|\b\d+(?:\.\d+)?\b/g;
 
-  const nodes: React.ReactNode[] = [];
+  const nodes: ReactNode[] = [];
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -38,10 +36,11 @@ function highlightCode(code: string, language?: string) {
     if (last < text.length) nodes.push(text.slice(last));
   };
 
+  tokenPattern.lastIndex = 0;
   while ((match = tokenPattern.exec(code))) {
     if (match.index > cursor) addPlain(code.slice(cursor, match.index));
     const token = match[0];
-    const isComment = token.startsWith("//") || token.startsWith("/*") || token.startsWith("#");
+    const isComment = token.startsWith("//") || token.startsWith("#");
     const isString = token.startsWith('"') || token.startsWith("'");
     const cls = isComment
       ? "text-white/40 italic"

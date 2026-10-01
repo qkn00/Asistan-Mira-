@@ -6,6 +6,8 @@ import { EMOTIONS, OUTFITS, FLIRTY_EMOJIS, outfitSrc, isEmotion, type Emotion } 
 import { MIRA_AVATAR } from "@/lib/mira-avatar";
 import { useSpeaker } from "./useSpeaker";
 
+const DID_EMBED_SRC = "https://agent.d-id.com/v2/index.js";
+
 type Msg = { id: number; role: string; content: string; emotion: string; createdAt: string };
 type SolMode = "sweet" | "flirty" | "serious" | "excited" | "close";
 type Settings = { userName: string; outfit: string; voiceRate: number; voicePitch: number; persona: string; solMode: SolMode; glamour: boolean };
@@ -161,6 +163,37 @@ export default function Assistant() {
   const speechSupportedRef = useRef(false);
   const welcomeSpokenRef = useRef(false);
   const startListeningRef = useRef<(() => boolean) | null>(null);
+  const didMountRef = useRef<HTMLDivElement>(null);
+
+  // D-ID live avatar embed. The client key is intentionally frontend-safe
+  // and restricted by D-ID to the allowed Railway domain.
+  useEffect(() => {
+    const clientKey = process.env.NEXT_PUBLIC_DID_CLIENT_KEY;
+    const agentId = process.env.NEXT_PUBLIC_DID_AGENT_ID;
+    const mount = didMountRef.current;
+    if (!clientKey || !agentId || !mount) return;
+
+    mount.replaceChildren();
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = DID_EMBED_SRC;
+    script.dataset.mode = "full";
+    script.dataset.targetId = "mira-did-agent";
+    script.dataset.clientKey = clientKey;
+    script.dataset.agentId = agentId;
+    script.dataset.name = "did-agent";
+    script.dataset.openMode = "expanded";
+    script.dataset.orientation = "vertical";
+    script.dataset.autoConnect = "true";
+    script.dataset.showRestartButton = "false";
+    script.dataset.showAgentName = "false";
+    mount.appendChild(script);
+
+    return () => {
+      script.remove();
+      mount.replaceChildren();
+    };
+  }, []);
 
   // Load data
   useEffect(() => {
@@ -463,16 +496,11 @@ export default function Assistant() {
             className="absolute inset-0 will-change-transform transition-[filter] duration-700"
             style={{ transformOrigin: "50% 45%", filter: glam ? "saturate(1.15) contrast(1.06) brightness(1.04)" : "none" }}
           >
-            <img
-              src={miraSrc}
-              alt="Mira dijital asistan"
-              className="absolute left-1/2 top-0 h-auto w-full max-h-full -translate-x-1/2 object-contain object-top scale-[0.88] origin-top md:inset-0 md:h-full md:w-full md:translate-x-0 md:object-cover md:object-center md:scale-[1.01] md:origin-center"
-            />
             <div
-              ref={mouthRef}
-              aria-hidden
-              className="pointer-events-none absolute left-1/2 top-[44%] z-20 h-[10px] w-[58px] -translate-x-1/2 -translate-y-1/2 rounded-[50%] bg-[#5b263e]/90 shadow-[0_1px_4px_rgba(40,8,24,0.45)]"
-              style={{ transformOrigin: "50% 50%", opacity: 0 }}
+              id="mira-did-agent"
+              ref={didMountRef}
+              className="absolute inset-0 z-10 overflow-hidden rounded-none bg-black/20"
+              aria-label="Mira canlı avatar"
             />
             <div className={`absolute inset-0 bg-gradient-to-t ${EMOTIONS[emotion].tint} to-transparent to-40% transition-all duration-700`} />
           </div>

@@ -576,7 +576,7 @@ export default function Assistant() {
       </main>
 
       {/* ===== Side panel ===== */}
-      <aside className="glass absolute inset-x-2 bottom-2 z-40 flex h-[43dvh] min-h-0 flex-col rounded-[28px] border-white/15 bg-[#0b0718]/55 shadow-2xl shadow-black/50 backdrop-blur-xl md:relative md:inset-auto md:bottom-auto md:z-10 md:m-4 md:ml-0 md:h-auto md:flex-1 md:w-[400px] md:flex-none">
+      <aside className="glass absolute inset-x-2 bottom-2 z-40 flex h-[30dvh] min-h-0 flex-col rounded-[28px] border-white/15 bg-[#0b0718]/55 shadow-2xl shadow-black/50 backdrop-blur-xl md:relative md:inset-auto md:bottom-auto md:z-10 md:m-4 md:ml-0 md:h-auto md:flex-1 md:w-[400px] md:flex-none">
         <div className="flex gap-1 border-b border-white/10 bg-black/10 p-1.5">
           {NAV.map((n) => (
             <button
@@ -621,7 +621,7 @@ export default function Assistant() {
                 </div>
               )}
             </div>
-            <div className="no-scrollbar flex gap-1.5 overflow-x-auto px-3 pb-2">
+            <div className="no-scrollbar hidden gap-1.5 overflow-x-auto px-3 pb-2 md:flex">
               {["Merhaba! Nasılsın?", "YouTube video fikri ver", "TikTok trendleri neler?", "Bugün biraz üzgünüm", "Bana bir şaka yap"].map((q) => (
                 <button key={q} onClick={() => send(q)} className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20">
                   {q}

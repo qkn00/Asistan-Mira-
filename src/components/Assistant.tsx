@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { EMOTIONS, OUTFITS, FLIRTY_EMOJIS, outfitSrc, isEmotion, type Emotion } from "@/lib/avatar";
+import { MIRA_AVATAR } from "@/lib/mira-avatar";
 import { useSpeaker } from "./useSpeaker";
 
 type Msg = { id: number; role: string; content: string; emotion: string; createdAt: string };

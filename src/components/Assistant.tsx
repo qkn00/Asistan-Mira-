@@ -10,6 +10,45 @@ type Settings = { userName: string; outfit: string; voiceRate: number; voicePitc
 type Custom = { id: number; label: string };
 type Tab = "chat" | "wardrobe" | "emotions" | "settings";
 
+function CodeBlock({ code, language }: { code: string; language?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/55">
+      <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/55">
+        <span>{language || "kod"}</span>
+        <button type="button" onClick={copyCode} className="rounded-md px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white">
+          {copied ? "Kopyalandı ✓" : "Kopyala"}
+        </button>
+      </div>
+      <pre className="max-h-[420px] overflow-auto p-3 text-[12px] leading-relaxed text-white/90">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function renderMessageContent(content: string) {
+  const parts = content.split(/(```[a-zA-Z0-9_-]*\n?[\s\S]*?```)/g);
+  return parts.map((part, index) => {
+    const match = part.match(/^```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```$/);
+    if (match) return <CodeBlock key={index} language={match[1]} code={match[2].replace(/\n$/, "")} />;
+    if (!part) return null;
+    return <span key={index} className="whitespace-pre-wrap break-words">{part}</span>;
+  });
+}
+
+
 // Minimal Web Speech Recognition typings
 type SR = {
   lang: string;
@@ -493,7 +532,7 @@ export default function Assistant() {
               {msgs.map((m) => (
                 <div key={m.id} className={`fade-up flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[85%] rounded-2xl p-3 text-sm ${m.role === "user" ? "rounded-tr-sm bg-fuchsia-600/80" : "rounded-tl-sm bg-violet-900/70"}`}>
-                    {m.content}
+                    {renderMessageContent(m.content)}
                   </div>
                 </div>
               ))}

@@ -195,7 +195,7 @@ export default function Assistant() {
         const nod = speaking ? a * 1.25 : 0;
         const sway = Math.sin(t * 1.3) * (speaking ? 0.35 : 0.12);
         faceRef.current.style.transform =
-          \`translateY(\${-nod}px) rotate(\${sway * 0.25}deg) scale(\${1.015 + a * 0.004})\`;
+          `translateY(${-nod}px) rotate(${sway * 0.25}deg) scale(${1.015 + a * 0.004})`;
       }
 
       if (mouthRef.current) {
@@ -204,7 +204,7 @@ export default function Assistant() {
         const scaleY = speaking ? 0.08 + a * 1.35 : 0.08;
         const scaleX = speaking ? 0.78 + a * 0.28 : 0.78;
         mouthRef.current.style.transform =
-          \`translate(-50%, -50%) scale(\${scaleX}, \${scaleY})\`;
+          `translate(-50%, -50%) scale(${scaleX}, ${scaleY})`;
         mouthRef.current.style.opacity = speaking
           ? String(0.18 + a * 0.62)
           : "0";
@@ -220,7 +220,7 @@ export default function Assistant() {
             : listening
               ? 0.2 + phase * 0.35
               : 0.12;
-          el.style.transform = \`scaleY(\${h})\`;
+          el.style.transform = `scaleY(${h})`;
         }
       }
 

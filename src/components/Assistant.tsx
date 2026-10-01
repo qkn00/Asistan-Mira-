@@ -426,6 +426,10 @@ export default function Assistant() {
   const subtitleWords = subtitle.split(/\s+/).filter(Boolean);
   const status = listening ? "Dinliyorum..." : thinking ? "Düşünüyorum..." : speaking ? "Konuşuyorum..." : "Hazırım";
 
+  // Avatar subtitle should never expose raw Markdown/code fences.
+  const subtitleDisplay = subtitle.replace(/\`\`\`[a-zA-Z0-9_-]*\n?/g, "").replace(/\`\`\`/g, "").trim();
+  const displaySubtitleWords = subtitleDisplay.split(/\s+/).filter(Boolean);
+
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden md:flex-row">
       {/* Ambient blurred background */}
@@ -502,7 +506,7 @@ export default function Assistant() {
           {subtitle && (
             <div className="pointer-events-none absolute inset-x-3 bottom-24 text-center md:bottom-28">
               <div className="fade-up inline-block max-w-2xl rounded-2xl bg-black/55 px-4 py-2 text-sm leading-relaxed backdrop-blur md:text-lg">
-                {subtitleWords.map((w, i) => (
+                {displaySubtitleWords.map((w, i) => (
                   <span key={i} className={`transition-colors ${i === wordIndex ? "text-fuchsia-300" : i < wordIndex ? "text-white" : "text-white/55"}`}>
                     {w}{" "}
                   </span>

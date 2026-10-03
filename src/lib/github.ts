@@ -32,14 +32,12 @@ export async function createPR(filename: string, content: string, title: string)
   const baseBranch = 'main';
   const newBranch = `feature/${Date.now()}`;
 
-  // 1. main branch sha al
   const refRes = await fetch(`https://api.github.com/repos/${repo}/git/ref/heads/${baseBranch}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const refData = await refRes.json();
   const mainSha = refData.object.sha;
 
-  // 2. Yeni branch oluştur
   await fetch(`https://api.github.com/repos/${repo}/git/refs`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -49,7 +47,6 @@ export async function createPR(filename: string, content: string, title: string)
     }),
   });
 
-  // 3. Dosyayı oluştur/güncelle
   await fetch(`https://api.github.com/repos/${repo}/contents/${filename}`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -60,7 +57,6 @@ export async function createPR(filename: string, content: string, title: string)
     }),
   });
 
-  // 4. PR oluştur
   const prRes = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

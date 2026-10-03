@@ -11,6 +11,7 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +43,102 @@ export default function Home() {
     }
   };
 
+  const copyToClipboard = (text: string, index: number) => {
+    // Üç tırnak işaretlerini (```) ve dil adını temizleyerek sadece saf kodu kopyalar
+    const cleanCode = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '');
+    navigator.clipboard.writeText(cleanCode);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const renderMessageContent = (msg: Message, index: number) => {
+    const isCodeBlock = msg.content.startsWith('```');
+
+    if (isCodeBlock) {
+      const cleanCode = msg.content.replace(/^
+git add -A
+git commit -m "feat: add copy button and separate code block box"
+git push origin main --force
+cat << 'EOF' > src/app/page.tsx
+'use client';
+
+import { useState } from 'react';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export default function Home() {
+  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+
+    const userMessage = input.trim();
+    setInput('');
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage }),
+      });
+
+      const data = await res.json();
+      const reply = data.reply || data.error || 'Yanıt alınamadı.';
+      
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `Hata oluştu: ${err.message || 'Bağlantı hatası'}` },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, index: number) => {
+    const cleanCode = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '');
+    navigator.clipboard.writeText(cleanCode);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const renderMessageContent = (msg: Message, index: number) => {
+    const isCodeBlock = msg.content.startsWith('```');
+
+    if (isCodeBlock) {
+      const cleanCode = msg.content.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '');
+
+      return (
+        <div className="relative my-2 rounded-lg bg-slate-950 border border-slate-700 overflow-hidden text-left font-mono text-sm">
+          <div className="flex justify-between items-center px-4 py-1.5 bg-slate-800 text-slate-400 text-xs border-b border-slate-700">
+            <span>Kod Çıktısı</span>
+            <button
+              onClick={() => copyToClipboard(msg.content, index)}
+              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-xs font-sans transition-colors"
+            >
+              {copiedIndex === index ? '✓ Kopyalandı' : '📋 Kopyala'}
+            </button>
+          </div>
+          <pre className="p-4 overflow-x-auto text-slate-100 font-mono text-xs leading-relaxed">
+            <code>{cleanCode}</code>
+          </pre>
+        </div>
+      );
+    }
+
+    return <div className="whitespace-pre-wrap text-slate-100">{msg.content}</div>;
+  };
+
   return (
     <main className="flex flex-col h-screen max-w-4xl mx-auto p-4 bg-slate-900 text-white">
       <header className="py-4 border-b border-slate-700">
@@ -57,13 +154,13 @@ export default function Home() {
         {messages.map((msg, index) => (
           <div
             key={index}
-            className={`p-3 rounded-lg max-w-[80%] whitespace-pre-wrap ${
+            className={`p-3 rounded-lg max-w-[90%] ${
               msg.role === 'user'
                 ? 'bg-blue-600 ml-auto text-white'
                 : 'bg-slate-800 border border-slate-700 text-slate-100'
             }`}
           >
-            {msg.content}
+            {renderMessageContent(msg, index)}
           </div>
         ))}
         {loading && (

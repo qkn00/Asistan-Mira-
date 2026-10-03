@@ -1,17 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+const COMMANDS = [
+  { command: '/yt-viral', description: 'Otonom YouTube Shorts video üretimini tetikler' },
+  { command: '/oku ', description: 'GitHub reposundan dosya içeriğini okur' },
+];
+
 export default function Home() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    if (value.startsWith('/')) {
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectCommand = (cmd: string) => {
+    setInput(cmd);
+    setShowSuggestions(false);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +44,7 @@ export default function Home() {
 
     const userMessage = input.trim();
     setInput('');
+    setShowSuggestions(false);
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setLoading(true);
 
@@ -92,18 +118,18 @@ export default function Home() {
   };
 
   return (
-    <main className="flex flex-col h-screen max-w-4xl mx-auto p-4 bg-slate-900 text-white">
+    <main className="flex flex-col h-screen max-w-4xl mx-auto p-4 bg-slate-900 text-white relative">
       <header className="py-4 border-b border-slate-700 flex justify-between items-center">
         <h1 className="text-xl font-bold">Asistan Mira</h1>
         <span className="text-xs bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2 py-1 rounded">
-          v1.2 - Copy Ready
+          v1.3 - Auto Complete
         </span>
       </header>
 
       <div className="flex-1 overflow-y-auto my-4 space-y-4 pr-2">
         {messages.length === 0 && (
           <p className="text-slate-400 text-center mt-10">
-            Mira hazır. Komut çalıştırmak için <code className="bg-slate-800 px-2 py-1 rounded">/yt-viral AI tools</code> yazabilirsiniz.
+            Mira hazır. Komut listesini görmek için <code className="bg-slate-800 px-2 py-1 rounded">/</code> tuşuna basabilirsin.
           </p>
         )}
         {messages.map((msg, index) => (
@@ -125,22 +151,44 @@ export default function Home() {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2 border-t border-slate-700 pt-4">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Bir mesaj yazın veya /yt-viral AI tools..."
-          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2 rounded-lg disabled:opacity-50"
-        >
-          Gönder
-        </button>
-      </form>
+      <div className="relative">
+        {showSuggestions && (
+          <div className="absolute bottom-full mb-2 left-0 right-0 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden z-10">
+            <div className="px-3 py-1.5 text-xs text-slate-400 bg-slate-850 border-b border-slate-700 font-semibold">
+              Önerilen Komutlar
+            </div>
+            {COMMANDS.map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => selectCommand(item.command)}
+                className="w-full text-left px-4 py-2.5 hover:bg-slate-700 flex justify-between items-center transition-colors border-b border-slate-700/50 last:border-none"
+              >
+                <code className="text-blue-400 font-bold">{item.command}</code>
+                <span className="text-xs text-slate-400">{item.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-slate-700 pt-4">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={handleInputChange}
+            placeholder="Mesaj yazın veya komut için '/' tuşlayın..."
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2 rounded-lg disabled:opacity-50"
+          >
+            Gönder
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

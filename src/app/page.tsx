@@ -44,68 +44,6 @@ export default function Home() {
   };
 
   const copyToClipboard = (text: string, index: number) => {
-    // Üç tırnak işaretlerini (```) ve dil adını temizleyerek sadece saf kodu kopyalar
-    const cleanCode = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '');
-    navigator.clipboard.writeText(cleanCode);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
-  };
-
-  const renderMessageContent = (msg: Message, index: number) => {
-    const isCodeBlock = msg.content.startsWith('```');
-
-    if (isCodeBlock) {
-      const cleanCode = msg.content.replace(/^
-git add -A
-git commit -m "feat: add copy button and separate code block box"
-git push origin main --force
-cat << 'EOF' > src/app/page.tsx
-'use client';
-
-import { useState } from 'react';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-export default function Home() {
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
-
-    const userMessage = input.trim();
-    setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage }),
-      });
-
-      const data = await res.json();
-      const reply = data.reply || data.error || 'Yanıt alınamadı.';
-      
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-    } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: `Hata oluştu: ${err.message || 'Bağlantı hatası'}` },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copyToClipboard = (text: string, index: number) => {
     const cleanCode = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '');
     navigator.clipboard.writeText(cleanCode);
     setCopiedIndex(index);

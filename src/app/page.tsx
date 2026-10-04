@@ -8,7 +8,10 @@ interface Message {
 }
 
 const COMMANDS = [
-  { command: '/yt-viral', description: 'Otonom YouTube Shorts video üretimini tetikler' },
+  { command: '/yardım', description: 'Mira komutlarını gösterir' },
+  { command: '/durum', description: 'Mira ve veritabanı durumunu kontrol eder' },
+  { command: '/n8n', description: 'n8n bağlantı durumunu kontrol eder' },
+  { command: '/yt-viral ', description: 'YouTube Shorts otomasyonunu başlatır' },
   { command: '/oku ', description: 'GitHub reposundan dosya içeriğini okur' },
 ];
 

@@ -9,6 +9,56 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Geçersiz mesaj' }, { status: 400 });
     }
 
+    // Yardım ve sistem komutları
+    const command = message.trim().split(/\s+/)[0].toLocaleLowerCase('tr-TR');
+
+    if (command === '/yardım' || command === '/komutlar' || command === '/help') {
+      return NextResponse.json({
+        reply: [
+          'Komutlarım:',
+          '',
+          '/yardım — Bu komut listesini gösterir.',
+          '/durum — Mira backend ve veritabanı sağlık durumunu kontrol eder.',
+          '/n8n — n8n bağlantı durumunu kontrol eder.',
+          '/yt-viral <konu> — YouTube Shorts otomasyonunu başlatır.',
+          '/oku <dosya> — GitHub reposundaki dosyayı okur.',
+        ].join('\\n'),
+        emotion: 'focused',
+      });
+    }
+
+    if (command === '/durum') {
+      try {
+        const base = new URL(req.url).origin;
+        const health = await fetch(`${base}/api/health`, { cache: 'no-store' });
+        const data = await health.json().catch(() => ({}));
+        return NextResponse.json({
+          reply: data.ok
+            ? `Sistem ayakta. Backend: aktif. Veritabanı: ${data.database ? 'bağlı' : 'bağlantı doğrulanamadı'}.`
+            : 'Backend sağlık kontrolü başarısız oldu.',
+          emotion: 'focused',
+        });
+      } catch {
+        return NextResponse.json({ reply: 'Backend sağlık kontrolünü şu anda doğrulayamıyorum.', emotion: 'focused' });
+      }
+    }
+
+    if (command === '/n8n') {
+      try {
+        const base = new URL(req.url).origin;
+        const status = await fetch(`${base}/api/automation/n8n-status`, { cache: 'no-store' });
+        const data = await status.json().catch(() => ({}));
+        return NextResponse.json({
+          reply: data.reachable
+            ? 'n8n sunucusuna canlı erişim doğrulandı.'
+            : 'n8n sunucusuna canlı erişimi doğrulayamadım.',
+          emotion: 'focused',
+        });
+      } catch {
+        return NextResponse.json({ reply: 'n8n durumunu şu anda doğrulayamıyorum.', emotion: 'focused' });
+      }
+    }
+
     // /yt-viral komutu kontrolü (n8n İngilizce Video Otomasyonu Tetikleyici)
     if (message.startsWith('/yt-viral')) {
       const topic = message.replace('/yt-viral', '').trim() || 'AI tools and future technology';

@@ -1,3 +1,4 @@
+import { think } from '../../../lib/brain';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
@@ -79,9 +80,8 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({
-      reply: `Mira mesajınızı aldı: "${message}". Şu anda yapay zeka yanıt servisi kullanılamıyor.`,
-    });
+    const result = await think(message, [], "", "flirty");
+    return NextResponse.json(result);
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Sunucu hatası' }, { status: 500 });

@@ -218,8 +218,8 @@ export async function getRelevantMemories(
   try {
     // Extract keywords from message (simple tokenization, min 3 chars)
     const keywords = userMessage
-      .toLowerCase()
-      .match(/\b[a-zçğıöşüa-z]{3,}\b/g) || [];
+      .toLocaleLowerCase('tr-TR')
+      .match(/\b[a-zçğıöşü]{3,}\b/giu) || [];
 
     // If no keywords, return top-importance memories
     if (keywords.length === 0) {
@@ -379,18 +379,18 @@ Silmek istediğinizden emin misiniz?
  * Returns 'approve' or 'reject' based on user message.
  */
 export function parseConfirmationResponse(message: string): 'approve' | 'reject' {
-  const lower = message.toLowerCase().trim();
+  const lower = message.toLocaleLowerCase('tr-TR').trim();
 
-  // Turkish and English affirmatives
-  if (/\b(?:evet|yes|yep|oui|sí|yup|sure|tamam|onay|kabul|accept)\b/i.test(lower)) {
+  // Approval is intentionally strict: only an explicit confirmation phrase can approve.
+  if (/^(?:evet(?:,\s*hatırla)?|evet\s+hatırla|yes|yep|oui|sí|yup|sure|onayla|onay|kabul|accept)!?$/iu.test(lower)) {
     return 'approve';
   }
 
-  // Turkish and English negatives
-  if (/\b(?:hayır|no|nope|non|ama?o|refuse|reddet|iptal|cancel)\b/i.test(lower)) {
+  // Explicit rejection phrases.
+  if (/^(?:hayır|hayir|hayır,?\s*(?:sakın|sakin|tut)|hayir,?\s*(?:sakin|tut)|no|nope|non|refuse|reddet|iptal|cancel)!?$/iu.test(lower)) {
     return 'reject';
   }
 
-  // Default to reject if unclear
+  // Anything ambiguous is rejected.
   return 'reject';
 }

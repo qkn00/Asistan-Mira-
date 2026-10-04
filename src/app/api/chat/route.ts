@@ -43,6 +43,14 @@ export async function POST(req: Request) {
       }
     }
 
+    if (command === '/n8n-ajan') {
+      const agentName = message.trim().replace(/^\/n8n-ajan\s*/i, '').trim() || 'Mira n8n Ajanı';
+      return NextResponse.json({
+        reply: `n8n ajanı oluşturma isteği hazırlandı: “${agentName}”. Şu an yalnızca bu komutun kendisini oluşturdum; n8n tarafında gerçek ajan/workflow oluşturulduğu henüz doğrulanmadı. Bir sonraki adımda bu komutu gerçek n8n oluşturma webhook'una bağlayabiliriz.`,
+        emotion: 'focused',
+      });
+    }
+
     if (command === '/n8n') {
       try {
         const base = new URL(req.url).origin;

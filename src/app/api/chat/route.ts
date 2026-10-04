@@ -75,7 +75,7 @@ export async function POST(req: Request) {
 
       const fileContent = await res.text();
       return NextResponse.json({
-        reply: `\`\`\`\n${fileContent}\n\`\`\``,
+        reply: "```\n" + fileContent + "\n```",
       });
     }
 

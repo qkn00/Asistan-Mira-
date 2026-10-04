@@ -1,4 +1,6 @@
 import { think } from '../../../lib/brain';
+import { db } from '@/db';
+import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
@@ -29,17 +31,17 @@ export async function POST(req: Request) {
 
     if (command === '/durum') {
       try {
-        const base = new URL(req.url).origin;
-        const health = await fetch(`${base}/api/health`, { cache: 'no-store' });
-        const data = await health.json().catch(() => ({}));
+        await db.execute(sql`select 1`);
         return NextResponse.json({
-          reply: data.ok
-            ? `Sistem ayakta. Backend: aktif. Veritabanı: ${data.database ? 'bağlı' : 'bağlantı doğrulanamadı'}.`
-            : 'Backend sağlık kontrolü başarısız oldu.',
+          reply: 'Sistem ayakta. Backend: aktif. Veritabanı: bağlı ve doğrulandı.',
           emotion: 'focused',
         });
-      } catch {
-        return NextResponse.json({ reply: 'Backend sağlık kontrolünü şu anda doğrulayamıyorum.', emotion: 'focused' });
+      } catch (error) {
+        console.error('Mira /durum database health check failed:', error);
+        return NextResponse.json({
+          reply: 'Backend aktif, ancak veritabanı bağlantısı şu anda doğrulanamadı.',
+          emotion: 'focused',
+        });
       }
     }
 

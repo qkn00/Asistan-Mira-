@@ -79,33 +79,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // Genel Sohbet Yanıtı (Groq / AI Yanıtı)
-    const groqKey = process.env.GROQ_API_KEY;
-    if (groqKey) {
-      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: 'Sen Mira adında yardımsever, zeki ve otonom bir AI asistansın.' },
-            { role: 'user', content: message }
-          ]
-        })
-      });
-
-      if (groqRes.ok) {
-        const groqData = await groqRes.json();
-        const replyText = groqData.choices?.[0]?.message?.content || 'Yanıt oluşturulamadı.';
-        return NextResponse.json({ reply: replyText });
-      }
-    }
-
     return NextResponse.json({
-      reply: `Mira mesajınızı aldı: "${message}". Groq API anahtarınızı tanımlayarak gelişmiş yapay zeka yanıtlarını aktif edebilirsiniz.`
+      reply: `Mira mesajınızı aldı: "${message}". Şu anda yapay zeka yanıt servisi kullanılamıyor.`,
     });
 
   } catch (error: any) {

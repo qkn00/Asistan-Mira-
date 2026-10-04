@@ -10,6 +10,8 @@ export async function listImportantMemories(limit = 20) {
     .limit(Math.min(100, Math.max(1, limit)));
 }
 
+export function memoryWritePolicy(value: string) { return value.length <= 4000; }
+
 export async function remember(key: string, value: string, category = "general", importance = 3) {
   const cleanKey = key.trim().slice(0, 200);
   const cleanValue = value.trim().slice(0, 4000);

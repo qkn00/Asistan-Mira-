@@ -45,12 +45,65 @@ export async function POST(req: Request) {
       }
     }
 
+    // Mira -> n8n AI Agent
     if (command === '/n8n-ajan') {
-      const agentName = message.trim().replace(/^\/n8n-ajan\s*/i, '').trim() || 'Mira n8n Ajanı';
-      return NextResponse.json({
-        reply: `n8n ajanı oluşturma isteği hazırlandı: “${agentName}”. Şu an yalnızca bu komutun kendisini oluşturdum; n8n tarafında gerçek ajan/workflow oluşturulduğu henüz doğrulanmadı. Bir sonraki adımda bu komutu gerçek n8n oluşturma webhook'una bağlayabiliriz.`,
-        emotion: 'focused',
-      });
+      const instruction = message.trim().replace(/^\/n8n-ajan\s*/i, '').trim();
+      const agentWebhookUrl = process.env.N8N_AGENT_WEBHOOK_URL?.trim();
+
+      if (!instruction) {
+        return NextResponse.json({
+          reply: 'n8n Agent’a göndereceğim emri yazmalısın. Örnek: /n8n-ajan Antarktika hakkında bir Shorts videosu hazırla.',
+          emotion: 'focused',
+        });
+      }
+
+      if (!agentWebhookUrl) {
+        return NextResponse.json({
+          reply: 'n8n Agent webhook adresi henüz yapılandırılmadı. N8N_AGENT_WEBHOOK_URL gerekli.',
+          emotion: 'focused',
+        });
+      }
+
+      try {
+        const response = await fetch(agentWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            instruction,
+            source: 'Mira',
+            timestamp: new Date().toISOString(),
+          }),
+        });
+
+        const raw = await response.text();
+        let data: unknown = raw;
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch {}
+
+        if (!response.ok) {
+          return NextResponse.json({
+            reply: `❌ n8n Agent emri kabul etmedi. HTTP ${response.status}.`,
+            emotion: 'focused',
+          });
+        }
+
+        const agentReply =
+          data && typeof data === 'object' && 'reply' in data && typeof data.reply === 'string'
+            ? data.reply
+            : raw || 'n8n Agent emri aldı; Agent sonucu henüz döndürmedi.';
+
+        return NextResponse.json({
+          reply: `🤖 n8n Agent’a emir gönderildi ve HTTP yanıtı doğrulandı.\n\n${agentReply}`,
+          emotion: 'focused',
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        return NextResponse.json({
+          reply: `❌ n8n Agent bağlantısı başarısız: ${reason.slice(0, 300)}`,
+          emotion: 'focused',
+        });
+      }
     }
 
     if (command === '/n8n') {

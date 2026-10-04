@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
         if (response.ok) {
           return NextResponse.json({
-            reply: `🚀 **Mira YouTube Otomasyonu Başlatıldı!**\n\n- **Aranan Konu:** ${topic}\n- **Hedef Kitle:** İngilizce / Global (US)\n- **İşlem:** YouTube Data API ile trendler çekiliyor, Groq/Gemini ile senaryo yazılıp ElevenLabs/Edge-TTS & Pexels ile video renderlanıyor.`
+            reply: `🚀 **Mira YouTube Otomasyonu Başlatıldı!**\n\n- **Aranan Konu:** ${topic}\n- **Hedef Kitle:** İngilizce / Global (US)\n- **İşlem:** YouTube Data API ile trendler çekiliyor, yapay zekâ ile senaryo yazılıp ElevenLabs/Edge-TTS & Pexels ile video renderlanıyor.`
           });
         } else {
           return NextResponse.json({

@@ -84,7 +84,9 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
   let lastError = "Gemini unavailable";
 
   for (const model of models) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    // Keep chat responsive: retry transient Gemini capacity errors once, then
+    // move immediately to the fallback model/provider instead of waiting 7s+.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
@@ -116,11 +118,9 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
       const body = await readError(res);
       lastError = `Gemini ${res.status}: ${body}`;
 
-      // 503 UNAVAILABLE is a transient backend/capacity condition. Retry with
-      // exponential backoff, then try the configured fallback model.
-      if (res.status === 503) {
-        const delayMs = 1000 * 2 ** attempt;
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      // 503 UNAVAILABLE is transient. Use one short retry, then move on.
+      if (res.status === 503 && attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 350));
         continue;
       }
 

@@ -151,7 +151,7 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     // pretending that a model answered. This makes Railway configuration
     // failures diagnosable from the chat UI without exposing API secrets.
     return {
-      reply: "Mira şu anda yapay zekâ bağlantısını kuramıyor. Sistem bağlantısını kontrol ediyorum.",
+      reply: `Model bağlantısı başarısız: ${failureReason.slice(0, 500)}`,
       emotion: "focused",
     };
   }

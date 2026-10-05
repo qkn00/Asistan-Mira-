@@ -59,9 +59,37 @@ export default function Home() {
         body: JSON.stringify({ message: userMessage }),
       });
 
-      const data = await res.json();
-      const reply = data.reply || data.error || 'Yanıt alınamadı.';
-      
+      // Do not blindly call res.json(): deployment/proxy errors can return
+      // plain text or HTML and cause "Unexpected token ... is not valid JSON".
+      const raw = await res.text();
+      let data: unknown = null;
+
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        const preview = raw.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 500);
+        throw new Error(
+          preview
+            ? `Sunucu JSON yerine metin döndürdü (HTTP ${res.status}): ${preview}`
+            : `Sunucu geçerli JSON döndürmedi (HTTP ${res.status}).`,
+        );
+      }
+
+      if (!res.ok) {
+        const error =
+          data && typeof data === 'object' && 'error' in data && typeof data.error === 'string'
+            ? data.error
+            : `HTTP ${res.status}`;
+        throw new Error(error);
+      }
+
+      const reply =
+        data && typeof data === 'object' && 'reply' in data && typeof data.reply === 'string'
+          ? data.reply
+          : data && typeof data === 'object' && 'error' in data && typeof data.error === 'string'
+            ? data.error
+            : 'Yanıt alınamadı.';
+
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
     } catch (err: any) {
       setMessages((prev) => [

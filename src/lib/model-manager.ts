@@ -250,7 +250,12 @@ export async function generateWithFallback(request: ModelRequest): Promise<Model
       });
       return result;
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason =
+        error instanceof Error && error.name === "AbortError"
+          ? `timeout after ${PROVIDER_TIMEOUT_MS}ms`
+          : error instanceof Error
+            ? error.message
+            : String(error);
       failures.push(`${provider}: ${reason}`);
       console.error("Mira model failed; trying next provider", {
         provider,

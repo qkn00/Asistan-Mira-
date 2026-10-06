@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     }
 
     if (memoryCommand.type === 'forget') {
-      const matches = await db.select({ id: memories.id, key: memories.key }).from(memories).where(ilike(memories.key, '%' + memoryCommand.text + '%')).limit(1);
+      const matches = await db.select({ id: memories.id, key: memories.key }).from(memories).where(ilike(memories.value, '%' + memoryCommand.text + '%')).limit(1);
       if (matches.length === 0) return NextResponse.json({ reply: 'ℹ️ Bu hafızayı kayıtlarda bulamadım: "' + memoryCommand.text + '"', emotion: 'focused' });
       const approval = await generateForgetApprovalMessage(memoryCommand.text);
       await db.insert(operations).values({ action: 'memory_forget_pending', status: 'pending', summary: 'Kullanıcı onayı bekleniyor: hafıza silme', metadata: { memoryId: matches[0].id, key: matches[0].key } });

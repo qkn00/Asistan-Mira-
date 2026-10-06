@@ -263,7 +263,7 @@ export async function getRelevantMemories(
 // ============ MEMORY CONTEXT FORMATTING ============
 
 /**
- * Format memories into a human-readable context string for injection into Groq prompt.
+ * Format memories into a human-readable context string for injection into the model prompt.
  * Keeps formatting concise and natural.
  */
 export function formatMemoriesForContext(

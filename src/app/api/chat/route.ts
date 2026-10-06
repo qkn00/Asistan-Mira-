@@ -1,6 +1,8 @@
 import { think } from '../../../lib/brain';
 import { db } from '@/db';
-import { sql } from 'drizzle-orm';
+import { messages } from '@/db/schema';
+import { desc, sql } from 'drizzle-orm';
+import { formatMemoriesForContext, getRelevantMemories } from '@/lib/memory-chat';
 import { NextResponse } from 'next/server';
 
 const EXTERNAL_TIMEOUT_MS = 8000;
@@ -205,7 +207,41 @@ export async function POST(req: Request) {
       });
     }
 
-    const result = await think(message, [], "", "flirty");
+    // Persisted conversation + relevant long-term memory.
+    // Memory failures must never take the live chat path down.
+    let history: { role: "user" | "assistant"; content: string }[] = [];
+    let memoryContext = "(Henüz kayıtlı önemli hafıza yok.)";
+
+    try {
+      const recentMessages = await db
+        .select({ role: messages.role, content: messages.content })
+        .from(messages)
+        .orderBy(desc(messages.id))
+        .limit(12);
+
+      history = recentMessages
+        .reverse()
+        .filter((m): m is { role: "user" | "assistant"; content: string } =>
+          (m.role === "user" || m.role === "assistant") && typeof m.content === "string"
+        );
+
+      const relevantMemories = await getRelevantMemories(message, 5);
+      memoryContext = formatMemoriesForContext(relevantMemories);
+    } catch (memoryError) {
+      console.error("Mira context load failed:", memoryError);
+    }
+
+    const result = await think(message, history, "", "flirty", memoryContext);
+
+    try {
+      await db.insert(messages).values([
+        { role: "user", content: message, emotion: "focused" },
+        { role: "assistant", content: result.reply, emotion: result.emotion },
+      ]);
+    } catch (persistError) {
+      console.error("Mira conversation persistence failed:", persistError);
+    }
+
     return NextResponse.json(result);
 
   } catch (error: any) {

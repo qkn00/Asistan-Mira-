@@ -186,7 +186,7 @@ export async function POST(req: Request) {
         });
       }
 
-      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
+      const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/vnd.github.v3.raw',

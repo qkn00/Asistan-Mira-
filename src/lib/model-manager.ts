@@ -23,6 +23,19 @@ async function readError(res: Response): Promise<string> {
   return body.slice(0, 800);
 }
 
+
+const PROVIDER_TIMEOUT_MS = 5000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY missing");
@@ -42,7 +55,7 @@ async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
     },
   ];
 
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const res = await fetchWithTimeout("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -142,7 +155,7 @@ async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
     { role: "user", content: request.message },
   ];
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -174,7 +187,7 @@ async function callClaude(request: ModelRequest): Promise<ModelResult> {
     { role: "user", content: request.message },
   ];
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetchWithTimeout("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

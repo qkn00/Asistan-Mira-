@@ -1,8 +1,9 @@
 import { think } from '../../../lib/brain';
 import { db } from '@/db';
-import { messages } from '@/db/schema';
-import { desc, sql } from 'drizzle-orm';
-import { formatMemoriesForContext, getRelevantMemories } from '@/lib/memory-chat';
+import { messages, memories, operations } from '@/db/schema';
+import { desc, eq, ilike, sql } from 'drizzle-orm';
+import { formatMemoriesForContext, getRelevantMemories, generateForgetApprovalMessage, generateSaveApprovalMessage, parseConfirmationResponse, parseMemoryCommand } from '@/lib/memory-chat';
+import { remember } from '@/lib/memory';
 import { NextResponse } from 'next/server';
 
 const EXTERNAL_TIMEOUT_MS = 8000;
@@ -27,6 +28,66 @@ export async function POST(req: Request) {
 
     // Yardım ve sistem komutları
     const command = message.trim().split(/\s+/)[0].toLocaleLowerCase('tr-TR');
+
+    // Hafıza onay akışı: bekleyen kayıt/silme işlemleri yalnızca açık onayla uygulanır.
+    const pending = await db.select().from(operations).where(eq(operations.status, 'pending')).orderBy(desc(operations.id)).limit(1);
+    const pendingOp = pending[0];
+    const confirmation = parseConfirmationResponse(message);
+
+    if (pendingOp?.action === 'memory_save_pending' && confirmation === 'approve') {
+      const metadata = pendingOp.metadata && typeof pendingOp.metadata === 'object' ? pendingOp.metadata as Record<string, unknown> : {};
+      const text = typeof metadata.text === 'string' ? metadata.text : '';
+      const category = typeof metadata.category === 'string' ? metadata.category : 'general';
+      const importance = typeof metadata.importance === 'number' ? metadata.importance : 3;
+      if (!text) return NextResponse.json({ reply: 'Bekleyen hafıza kaydı geçersiz.', emotion: 'focused' }, { status: 500 });
+      try {
+        const row = await remember('memory:' + Date.now(), text, category, importance);
+        await db.update(operations).set({ status: 'success', summary: 'Hafıza kaydedildi: ' + row.key }).where(eq(operations.id, pendingOp.id));
+        return NextResponse.json({ reply: '✅ Tamam. Hafızaya kaydettim: "' + row.value + '"\nKategori: ' + row.category + ' · Önem: ' + row.importance + '/5', emotion: 'focused' });
+      } catch (error) {
+        console.error('Mira memory save failed:', error);
+        return NextResponse.json({ reply: '❌ Hafızaya kaydetme başarısız oldu; kayıt tamamlanmadı.', emotion: 'focused' }, { status: 500 });
+      }
+    }
+
+    if (pendingOp?.action === 'memory_save_pending' && confirmation === 'reject') {
+      await db.update(operations).set({ status: 'cancelled', summary: 'Hafıza kaydı kullanıcı tarafından iptal edildi.' }).where(eq(operations.id, pendingOp.id));
+      return NextResponse.json({ reply: 'İptal edildi. Bu bilgi hafızaya kaydedilmedi.', emotion: 'focused' });
+    }
+
+    if (pendingOp?.action === 'memory_forget_pending' && confirmation === 'approve') {
+      const metadata = pendingOp.metadata && typeof pendingOp.metadata === 'object' ? pendingOp.metadata as Record<string, unknown> : {};
+      const memoryId = typeof metadata.memoryId === 'number' ? metadata.memoryId : null;
+      if (!memoryId) return NextResponse.json({ reply: 'Bekleyen silme işlemi geçersiz.', emotion: 'focused' }, { status: 500 });
+      const [row] = await db.delete(memories).where(eq(memories.id, memoryId)).returning();
+      await db.update(operations).set({ status: row ? 'success' : 'cancelled', summary: row ? 'Hafıza silindi: ' + row.key : 'Hafıza zaten bulunamadı.' }).where(eq(operations.id, pendingOp.id));
+      return NextResponse.json({ reply: row ? '🗑️ Tamam. Hafızadan sildim: "' + row.value + '"' : 'Bu hafıza zaten mevcut değil.', emotion: 'focused' });
+    }
+
+    if (pendingOp?.action === 'memory_forget_pending' && confirmation === 'reject') {
+      await db.update(operations).set({ status: 'cancelled', summary: 'Hafıza silme kullanıcı tarafından iptal edildi.' }).where(eq(operations.id, pendingOp.id));
+      return NextResponse.json({ reply: 'İptal edildi. Hafıza saklı tutuldu.', emotion: 'focused' });
+    }
+
+    const memoryCommand = parseMemoryCommand(message);
+    if (memoryCommand.type === 'save') {
+      if (memoryCommand.hasSensitiveData) return NextResponse.json({ reply: generateSaveApprovalMessage(memoryCommand), emotion: 'focused' });
+      await db.insert(operations).values({ action: 'memory_save_pending', status: 'pending', summary: 'Kullanıcı onayı bekleniyor: hafıza kaydı', metadata: { text: memoryCommand.text, category: memoryCommand.category, importance: memoryCommand.importance } });
+      return NextResponse.json({ reply: generateSaveApprovalMessage(memoryCommand), emotion: 'focused' });
+    }
+
+    if (memoryCommand.type === 'forget') {
+      const matches = await db.select({ id: memories.id, key: memories.key }).from(memories).where(ilike(memories.key, '%' + memoryCommand.text + '%')).limit(1);
+      if (matches.length === 0) return NextResponse.json({ reply: 'ℹ️ Bu hafızayı kayıtlarda bulamadım: "' + memoryCommand.text + '"', emotion: 'focused' });
+      const approval = await generateForgetApprovalMessage(memoryCommand.text);
+      await db.insert(operations).values({ action: 'memory_forget_pending', status: 'pending', summary: 'Kullanıcı onayı bekleniyor: hafıza silme', metadata: { memoryId: matches[0].id, key: matches[0].key } });
+      return NextResponse.json({ reply: approval, emotion: 'focused' });
+    }
+
+    if (memoryCommand.type === 'query') {
+      const all = await db.select().from(memories).orderBy(desc(memories.importance), desc(memories.updatedAt)).limit(20);
+      return NextResponse.json({ reply: all.length ? formatMemoriesForContext(all) : 'Henüz kayıtlı hafıza yok.', emotion: 'focused' });
+    }
 
     if (command === '/yardım' || command === '/komutlar' || command === '/help') {
       return NextResponse.json({

@@ -8,7 +8,7 @@ import { useSpeaker } from "./useSpeaker";
 
 const DID_EMBED_SRC = "https://agent.d-id.com/v2/index.js";
 
-type Msg = { id: number; role: string; content: string; emotion: string; createdAt: string };
+type Msg = { id: number; role: string; content: string; emotion: string; createdAt: string; imageUrl?: string };
 type SolMode = "sweet" | "flirty" | "serious" | "excited" | "close";
 type Settings = { userName: string; outfit: string; voiceRate: number; voicePitch: number; persona: string; solMode: SolMode; glamour: boolean };
 type Custom = { id: number; label: string };
@@ -320,6 +320,32 @@ export default function Assistant() {
       stop();
       const temp: Msg = { id: -Date.now(), role: "user", content: text, emotion: "happy", createdAt: new Date().toISOString() };
       setMsgs((m) => [...m, temp]);
+
+      // Playful photo feature: when patron asks Mira for her photo, Mira
+      // can mischievously send her own avatar as if she just snapped a photo.
+      const asksForMiraPhoto =
+        /(?:fotoğraf|fotograf|resim|foto|selfie).*(?:gönder|at|yolla|göstersene|göstersene)|(?:gönder|at|yolla).*(?:fotoğraf|fotograf|resim|foto|selfie)|kendi.*(?:fotoğraf|fotograf|resim|foto|selfie)/iu.test(text);
+
+      if (asksForMiraPhoto) {
+        const photoText =
+          settings.solMode === "flirty" || settings.persona === "flirty"
+            ? "Tamam patron... ama bunu gerçekten ben çekmişim gibi kabul ediyorsun, sonra naz yapmam 😏"
+            : "Tamam patron, al bakalım. Bunu da Mira'nın kendi fotoğrafı say 😌";
+        const photoMsg: Msg = {
+          id: Date.now(),
+          role: "assistant",
+          content: photoText,
+          emotion: "playful",
+          createdAt: new Date().toISOString(),
+          imageUrl: MIRA_AVATAR,
+        };
+        setMsgs((m) => [...m, photoMsg]);
+        showEmotion("playful", 5000);
+        say(photoText, "playful");
+        setThinking(false);
+        return;
+      }
+
       setThinking(true);
       showEmotion("focused");
       try {
@@ -638,6 +664,13 @@ export default function Assistant() {
                 <div key={m.id} className={`fade-up flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[88%] rounded-2xl border border-white/10 p-3 text-sm shadow-lg shadow-black/20 backdrop-blur-md ${m.role === "user" ? "rounded-tr-sm bg-fuchsia-600/75" : "rounded-tl-sm bg-[#1d1238]/80"}`}>
                     {renderMessageContent(m.content)}
+                    {m.imageUrl && (
+                      <img
+                        src={m.imageUrl}
+                        alt="Mira'nın fotoğrafı"
+                        className="mt-3 max-h-[360px] w-full rounded-2xl object-cover shadow-lg ring-1 ring-white/10"
+                      />
+                    )}
                   </div>
                 </div>
               ))}

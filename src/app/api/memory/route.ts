@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { memories, operations } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { remember } from "@/lib/memory";
+import { hasSecretPatterns, detectSecretPatterns } from "@/lib/memory-chat";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,12 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
   if (typeof b.key !== "string" || typeof b.value !== "string") {
     return NextResponse.json({ error: "key ve value gerekli" }, { status: 400 });
+  }
+  if (hasSecretPatterns(b.value)) {
+    return NextResponse.json({
+      error: "Hassas bilgi hafızaya kaydedilemez.",
+      detected: detectSecretPatterns(b.value),
+    }, { status: 400 });
   }
   const row = await remember(
     b.key,

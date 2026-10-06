@@ -122,6 +122,18 @@ export async function POST(req: Request) {
       }
     }
 
+    // Private playful mode trigger. This changes Mira's conversational style only;
+    // it does not disable safety or authorization checks.
+    const privatePhrase = process.env.MIRA_PRIVATE_PHRASE?.trim().toLocaleLowerCase('tr-TR');
+    const privateMode = !!privatePhrase && message.trim().toLocaleLowerCase('tr-TR') === privatePhrase;
+    if (privateMode) {
+      return NextResponse.json({
+        reply: '😈 Özel Mira modu açıldı. Daha yaramaz ve flörtöz konuşacağım; güvenlik kuralları değişmedi, patron.',
+        emotion: 'playful',
+        privateMode: true,
+      });
+    }
+
     // Mira -> n8n AI Agent
     if (command === '/n8n-ajan') {
       const instruction = message.trim().replace(/^\/n8n-ajan\s*/i, '').trim();

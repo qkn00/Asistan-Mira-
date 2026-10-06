@@ -17,6 +17,7 @@ const COMMANDS = [
 ];
 
 export default function Home() {
+  const [entered, setEntered] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -149,12 +150,42 @@ export default function Home() {
     );
   };
 
+  if (!entered) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center overflow-hidden">
+        <section className="relative w-full min-h-screen flex flex-col items-center justify-center px-6">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-3xl animate-pulse" />
+            <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-400/20 animate-ping" />
+          </div>
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="mb-7 flex h-28 w-28 items-center justify-center rounded-full border border-blue-400/30 bg-slate-900/80 shadow-2xl shadow-blue-950/40">
+              <div className="h-16 w-16 rounded-full bg-blue-500/20 border border-blue-300/30 animate-pulse" />
+            </div>
+            <p className="mb-2 text-xs uppercase tracking-[0.45em] text-blue-300/70">MIRA</p>
+            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Hazırım.</h1>
+            <p className="mt-4 max-w-md text-sm leading-6 text-slate-400">
+              Görevlerine ve otomasyonlarına odaklanan tek çalışma alanı.
+            </p>
+            <button
+              type="button"
+              onClick={() => setEntered(true)}
+              className="mt-9 rounded-full border border-blue-400/30 bg-blue-500/10 px-8 py-3 text-sm font-medium text-blue-100 transition-all duration-300 hover:scale-105 hover:bg-blue-500/20"
+            >
+              Mira'ya gir
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="flex flex-col h-screen max-w-4xl mx-auto p-4 bg-slate-900 text-white relative">
       <header className="py-4 border-b border-slate-700 flex justify-between items-center">
         <h1 className="text-xl font-bold">Asistan Mira</h1>
         <span className="text-xs bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2 py-1 rounded">
-          v1.3 - Auto Complete
+          Görev Merkezi
         </span>
       </header>
 
@@ -209,7 +240,7 @@ export default function Home() {
             type="text"
             value={input}
             onChange={handleInputChange}
-            placeholder="Mesaj yazın veya komut için '/' tuşlayın..."
+            placeholder="Görev veya komut girin..."
             className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
           />
           <button

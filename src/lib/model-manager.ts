@@ -18,13 +18,29 @@ function cleanText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-async function readError(res: Response): Promise<string> {
-  const body = await res.text();
-  return body.slice(0, 800);
+// API key parcalari hata mesajlarinda asla gorunmesin.
+function redactSecrets(text: string): string {
+  return text
+    .replace(/sk-[A-Za-z0-9_\-*]{6,}/g, "sk-***")
+    .replace(/AIza[A-Za-z0-9_\-]{10,}/g, "AIza***");
 }
 
+async function readError(res: Response): Promise<string> {
+  const body = await res.text();
+  return redactSecrets(body.slice(0, 800));
+}
 
-const PROVIDER_TIMEOUT_MS = 5000;
+// Son 10 mesaj; ilk mesaj her zaman "user" olmali (Claude/Gemini bunu ister).
+function recentHistory(history: ModelTurn[]): ModelTurn[] {
+  const recent = history.slice(-10).filter((turn) => cleanText(turn.content));
+  while (recent.length > 0 && recent[0].role !== "user") recent.shift();
+  return recent;
+}
+
+// Varsayilan 20 sn. Railway'de MODEL_TIMEOUT_MS ile degistirilebilir.
+const configuredTimeout = Number(process.env.MODEL_TIMEOUT_MS);
+const PROVIDER_TIMEOUT_MS =
+  Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 20000;
 
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
@@ -36,18 +52,46 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
   }
 }
 
+type OpenAIResponse = {
+  output_text?: unknown;
+  output?: Array<{
+    type?: string;
+    content?: Array<{ type?: string; text?: unknown }>;
+  }>;
+};
+
+// Ham REST cevabinda output_text yoktur (SDK ekler); output[] icinden okunur.
+function extractOpenAIText(data: OpenAIResponse): string {
+  const direct = cleanText(data?.output_text);
+  if (direct) return direct;
+
+  const parts: string[] = [];
+  for (const item of data?.output ?? []) {
+    if (item?.type !== "message") continue;
+    for (const block of item?.content ?? []) {
+      if (block?.type === "output_text" && typeof block?.text === "string") {
+        parts.push(block.text);
+      }
+    }
+  }
+  return cleanText(parts.join(""));
+}
+
 async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY missing");
 
-  // Use the current Responses API and a current low-cost GPT-5.6 model.
-  // This avoids depending on the older Chat Completions path for Mira's
-  // primary brain while keeping the provider interface unchanged.
   const model = process.env.OPENAI_MODEL || "gpt-5.6-luna";
   const input = [
-    ...request.history.slice(-10).map((turn) => ({
+    ...recentHistory(request.history).map((turn) => ({
       role: turn.role,
-      content: [{ type: "input_text", text: turn.content }],
+      content: [
+        {
+          // Asistan mesajlari output_text, kullanici mesajlari input_text olmali.
+          type: turn.role === "assistant" ? "output_text" : "input_text",
+          text: turn.content,
+        },
+      ],
     })),
     {
       role: "user",
@@ -71,8 +115,8 @@ async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
 
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await readError(res)}`);
 
-  const data = await res.json();
-  const content = cleanText(data?.output_text);
+  const data = (await res.json()) as OpenAIResponse;
+  const content = extractOpenAIText(data);
   if (!content) throw new Error("OpenAI returned empty content");
 
   return { provider: "openai", model, content };

@@ -32,7 +32,9 @@ export async function POST(req: Request) {
     // Hafıza onay akışı: bekleyen kayıt/silme işlemleri yalnızca açık onayla uygulanır.
     const pending = await db.select().from(operations).where(eq(operations.status, 'pending')).orderBy(desc(operations.id)).limit(1);
     const pendingOp = pending[0];
-    const confirmation = parseConfirmationResponse(message);
+    const confirmationCandidate = message.trim().toLocaleLowerCase('tr-TR');
+    const isExplicitConfirmation = /^(?:evet(?:,?\s*hatırla)?|evet\s+hatırla|yes|yep|oui|sí|yup|sure|onayla|onay|kabul|accept|hayır|hayir|hayır,?\s*(?:sakın|sakin|tut)|hayir,?\s*(?:sakin|tut)|no|nope|non|refuse|reddet|iptal|cancel)!?$/iu.test(confirmationCandidate);
+    const confirmation = isExplicitConfirmation ? parseConfirmationResponse(message) : null;
 
     if (pendingOp?.action === 'memory_save_pending' && confirmation === 'approve') {
       const metadata = pendingOp.metadata && typeof pendingOp.metadata === 'object' ? pendingOp.metadata as Record<string, unknown> : {};

@@ -277,7 +277,7 @@ async function callGroq(request: ModelRequest): Promise<ModelResult> {
   const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
   const messages = [
     { role: "system", content: request.system },
-    ...request.history.slice(-10),
+    ...recentHistory(request.history),
     { role: "user", content: request.message },
   ];
 

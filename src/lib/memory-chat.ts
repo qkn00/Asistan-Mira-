@@ -382,7 +382,7 @@ export function parseConfirmationResponse(message: string): 'approve' | 'reject'
   const lower = message.toLocaleLowerCase('tr-TR').trim();
 
   // Approval is intentionally strict: only an explicit confirmation phrase can approve.
-  if (/^(?:evet(?:,\s*hatırla)?|evet\s+hatırla|yes|yep|oui|sí|yup|sure|onayla|onay|kabul|accept)!?$/iu.test(lower)) {
+  if (/^(?:evet,?\\s*(?:hatırla|sil)|yes,?\\s*(?:remember|delete)|onayla,?\\s*(?:hatırla|sil))!?$/iu.test(lower)) {
     return 'approve';
   }
 

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { memories } from "@/db/schema";
-import { desc, ilike } from "drizzle-orm";
+import { desc, eq, ilike, or } from "drizzle-orm";
 
 // ============ TYPES ============
 
@@ -345,7 +345,7 @@ export async function generateForgetApprovalMessage(memoryKey: string): Promise<
     const mem = await db
       .select()
       .from(memories)
-      .where(ilike(memories.key, `%${memoryKey}%`))
+      .where(or(eq(memories.key, memoryKey), ilike(memories.value, `%${memoryKey}%`)))
       .limit(1);
 
     if (mem.length === 0) {

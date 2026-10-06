@@ -6,6 +6,8 @@ import { formatMemoriesForContext, getRelevantMemories, generateForgetApprovalMe
 import { remember } from '@/lib/memory';
 import { NextResponse } from 'next/server';
 
+const PRIVATE_MODE_COOKIE = 'mira_private_mode';
+
 const EXTERNAL_TIMEOUT_MS = 8000;
 
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}) {
@@ -125,13 +127,18 @@ export async function POST(req: Request) {
     // Private playful mode trigger. This changes Mira's conversational style only;
     // it does not disable safety or authorization checks.
     const privatePhrase = process.env.MIRA_PRIVATE_PHRASE?.trim().toLocaleLowerCase('tr-TR');
-    const privateMode = !!privatePhrase && message.trim().toLocaleLowerCase('tr-TR') === privatePhrase;
-    if (privateMode) {
-      return NextResponse.json({
-        reply: '😈 Özel Mira modu açıldı. Daha yaramaz ve flörtöz konuşacağım; güvenlik kuralları değişmedi, patron.',
+    const requestedPrivateMode = !!privatePhrase && message.trim().toLocaleLowerCase('tr-TR') === privatePhrase;
+    const cookieHeader = req.headers.get('cookie') ?? '';
+    const storedPrivateMode = cookieHeader.split(';').some((part) => part.trim() === `${PRIVATE_MODE_COOKIE}=1`);
+    const privateMode = requestedPrivateMode || storedPrivateMode;
+    if (requestedPrivateMode) {
+      const response = NextResponse.json({
+        reply: '😈 Özel Mira modu açıldı. Konuşma boyunca daha yaramaz ve flörtöz olacağım; güvenlik kuralları değişmedi, patron.',
         emotion: 'playful',
         privateMode: true,
       });
+      response.cookies.set(PRIVATE_MODE_COOKIE, '1', { httpOnly: true, sameSite: 'lax', path: '/' });
+      return response;
     }
 
     // Mira -> n8n AI Agent
@@ -306,7 +313,7 @@ export async function POST(req: Request) {
       console.error("Mira context load failed:", memoryError);
     }
 
-    const result = await think(message, history, "", "flirty", memoryContext);
+    const result = await think(message, history, "", "flirty", memoryContext, "", privateMode);
 
     try {
       await db.insert(messages).values([
@@ -317,7 +324,8 @@ export async function POST(req: Request) {
       console.error("Mira conversation persistence failed:", persistError);
     }
 
-    return NextResponse.json(result);
+    const response = NextResponse.json({ ...result, privateMode });
+    return response;
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Sunucu hatası' }, { status: 500 });

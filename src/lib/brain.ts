@@ -19,7 +19,7 @@ function localReply(message: string, userName: string, persona: Persona, history
   const t = message.toLocaleLowerCase("tr-TR").trim();
   let emotion = detectEmotion(message);
 
-  // Fallback bilinçli olarak küçük tutulur. Gerçek sohbet zekâsı OpenAI modelinden gelir.
+  // Fallback bilinçli olarak küçük tutulur. Gerçek sohbet zekâsı yapılandırılmış model sağlayıcılarından gelir.
   // Burada yalnızca canlı sistem durumunun doğrulanması gibi deterministik cevaplar korunur.
   if (/(n8n.*(çalış|durum)|çalışıyor mu.*n8n|n8n.*gerçekten|n8n.*aktif|n8n.*canlı)/.test(t)) {
     emotion = "focused";

@@ -225,7 +225,7 @@ export async function POST(req: Request) {
 
         if (response.ok) {
           return NextResponse.json({
-            reply: `🚀 **Mira YouTube Otomasyonu Başlatıldı!**\n\n- **Aranan Konu:** ${topic}\n- **Hedef Kitle:** İngilizce / Global (US)\n- **İşlem:** YouTube Data API ile trendler çekiliyor, yapay zekâ ile senaryo yazılıp ElevenLabs/Edge-TTS & Pexels ile video renderlanıyor.`
+            reply: `🚀 **Mira YouTube otomasyonu tetikleme isteğini n8n'e iletti.**\n\n- **Aranan Konu:** ${topic}\n- **Hedef Kitle:** İngilizce / Global (US)\n- **Durum:** n8n webhook HTTP 2xx yanıtı verdi; bu yalnızca tetiklemenin kabul edildiğini doğrular.\n- **Not:** Video üretimi/yayınlanması henüz bu yanıtla doğrulanmış değildir.`
           });
         } else {
           return NextResponse.json({

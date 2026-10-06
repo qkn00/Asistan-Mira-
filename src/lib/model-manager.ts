@@ -100,7 +100,7 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
     // Keep chat responsive: retry transient Gemini capacity errors once, then
     // move immediately to the fallback model/provider instead of waiting 7s+.
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: "POST",

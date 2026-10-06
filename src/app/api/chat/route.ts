@@ -3,6 +3,18 @@ import { db } from '@/db';
 import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
+const EXTERNAL_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EXTERNAL_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { message } = await req.json();
@@ -65,7 +77,7 @@ export async function POST(req: Request) {
       }
 
       try {
-        const response = await fetch(agentWebhookUrl, {
+        const response = await fetchWithTimeout(agentWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({
@@ -109,7 +121,7 @@ export async function POST(req: Request) {
     if (command === '/n8n') {
       try {
         const base = new URL(req.url).origin;
-        const status = await fetch(`${base}/api/automation/n8n-status`, { cache: 'no-store' });
+        const status = await fetchWithTimeout(`${base}/api/automation/n8n-status`, { cache: 'no-store' });
         const data = await status.json().catch(() => ({}));
         return NextResponse.json({
           reply: data.reachable
@@ -135,7 +147,7 @@ export async function POST(req: Request) {
       }
 
       try {
-        const response = await fetch(n8nWebhookUrl, {
+        const response = await fetchWithTimeout(n8nWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

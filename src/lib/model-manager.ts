@@ -231,9 +231,9 @@ function providerOrder(): ModelProvider[] {
 
   const unique = [...new Set(configured)];
 
-
-
-  return unique;
+  // An invalid/empty environment value must never disable all providers.
+  // Fall back to the known-safe default order instead.
+  return unique.length > 0 ? unique : ["gemini", "claude", "openrouter", "openai"];
 }
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {

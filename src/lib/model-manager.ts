@@ -188,37 +188,86 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
   throw new Error(lastError);
 }
 
+type OpenRouterMessage = {
+  content?: unknown;
+  reasoning_details?: unknown;
+};
+
+function extractOpenRouterText(data: {
+  choices?: Array<{ message?: OpenRouterMessage }>;
+}): string {
+  const message = data?.choices?.[0]?.message;
+  const direct = cleanText(message?.content);
+  if (direct) return direct;
+
+  // Some OpenRouter-compatible providers may return content blocks instead
+  // of a single string. Read text blocks, but never expose reasoning_details.
+  if (Array.isArray(message?.content)) {
+    const parts = message.content
+      .map((block) => {
+        if (typeof block === "string") return block;
+        if (block && typeof block === "object" && "text" in block) {
+          const text = (block as { text?: unknown }).text;
+          return typeof text === "string" ? text : "";
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return cleanText(parts.join(""));
+  }
+
+  return "";
+}
+
 async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
 
-  const model = process.env.OPENROUTER_MODEL || "openrouter/free";
+  const model = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free";
   const messages = [
     { role: "system", content: request.system },
     ...request.history.slice(-10),
     { role: "user", content: request.message },
   ];
 
-  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: 1200,
-    }),
-  });
+  let lastError = "OpenRouter returned empty content";
 
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await readError(res)}`);
+  // Empty/zero-output responses can occur upstream. Retry once before fallback.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: 1200,
+        reasoning: { enabled: true, exclude: true },
+      }),
+    });
 
-  const data = await res.json();
-  const content = cleanText(data?.choices?.[0]?.message?.content);
-  if (!content) throw new Error("OpenRouter returned empty content");
+    if (!res.ok) {
+      lastError = `OpenRouter ${res.status}: ${await readError(res)}`;
+      if ((res.status === 429 || res.status >= 500) && attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        continue;
+      }
+      throw new Error(lastError);
+    }
 
-  return { provider: "openrouter", model, content };
+    const data = await res.json();
+    const content = extractOpenRouterText(data);
+    if (content) return { provider: "openrouter", model, content };
+
+    lastError = "OpenRouter returned empty content";
+    if (attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    }
+  }
+
+  throw new Error(lastError);
 }
 
 async function callClaude(request: ModelRequest): Promise<ModelResult> {

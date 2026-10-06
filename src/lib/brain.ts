@@ -24,8 +24,8 @@ function localReply(message: string, userName: string, persona: Persona, history
   if (/(n8n.*(çalış|durum)|çalışıyor mu.*n8n|n8n.*gerçekten|n8n.*aktif|n8n.*canlı)/.test(t)) {
     emotion = "focused";
     const n8nReachable = /n8n canlı sunucu erişimi: doğrulandı/.test(statusContext);
-    const n8nActive = /n8n workflow doğrulaması: seçilen workflow aktif\\./.test(statusContext);
-    const n8nInactive = /n8n workflow doğrulaması: seçilen workflow aktif değil\\./.test(statusContext);
+    const n8nActive = /n8n workflow doğrulaması: seçilen workflow aktif\./.test(statusContext);
+    const n8nInactive = /n8n workflow doğrulaması: seçilen workflow aktif değil\./.test(statusContext);
 
     if (n8nActive) {
       return { reply: "Evet, canlı kontrolümde n8n sunucusuna ulaşılıyor ve seçtiğimiz workflow aktif görünüyor.", emotion };

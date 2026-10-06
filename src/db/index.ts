@@ -1,8 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-// Railway provides DATABASE_URL at runtime. Keep module initialization
-// build-safe so Next.js can compile without a database variable.
 const databaseUrl =
   process.env.DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:5432/app_db";
@@ -15,7 +13,19 @@ export const pool =
   globalForDb.__arenaNextJsPostgresqlPool ??
   new Pool({
     connectionString: databaseUrl,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+    statement_timeout: 30000,
   });
+
+// Graceful shutdown
+if (process.env.NODE_ENV === "production") {
+  process.on("SIGTERM", async () => {
+    await pool.end();
+    process.exit(0);
+  });
+}
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.__arenaNextJsPostgresqlPool = pool;

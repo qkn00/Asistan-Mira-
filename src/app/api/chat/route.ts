@@ -9,10 +9,15 @@ import { NextResponse } from 'next/server';
 const PRIVATE_MODE_COOKIE = 'mira_private_mode';
 
 const EXTERNAL_TIMEOUT_MS = 8000;
+const VIDEO_TIMEOUT_MS = 180000;
 
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}) {
+  return fetchWithTimeoutMs(input, init, EXTERNAL_TIMEOUT_MS);
+}
+
+async function fetchWithTimeoutMs(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = EXTERNAL_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), EXTERNAL_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } finally {
@@ -271,11 +276,11 @@ export async function POST(req: Request) {
 
       try {
         const base = new URL(req.url).origin;
-        const response = await fetchWithTimeout(`${base}/api/video`, {
+        const response = await fetchWithTimeoutMs(`${base}/api/video`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ prompt }),
-        });
+        }, VIDEO_TIMEOUT_MS);
 
         const data = await response.json().catch(() => ({}));
 

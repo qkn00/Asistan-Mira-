@@ -223,7 +223,13 @@ async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
 
-  const model = process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free";
+  const models = [...new Set(
+    (process.env.OPENROUTER_MODEL ||
+      "nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3.5-lightning:free")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )];
   const messages = [
     { role: "system", content: request.system },
     ...request.history.slice(-10),
@@ -232,38 +238,43 @@ async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
 
   let lastError = "OpenRouter returned empty content";
 
-  // Empty/zero-output responses can occur upstream. Retry once before fallback.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        max_tokens: 1200,
-        reasoning: { enabled: true, exclude: true },
-      }),
-    });
+  // Try each configured OpenRouter model in the same service before
+  // returning control to the next provider.
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: 1200,
+          reasoning: { enabled: true, exclude: true },
+        }),
+      });
 
-    if (!res.ok) {
-      lastError = `OpenRouter ${res.status}: ${await readError(res)}`;
-      if ((res.status === 429 || res.status >= 500) && attempt === 0) {
+      if (!res.ok) {
+        lastError = `OpenRouter ${model} ${res.status}: ${await readError(res)}`;
+        if ((res.status === 429 || res.status >= 500) && attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 350));
+          continue;
+        }
+        break;
+      }
+
+      const data = await res.json();
+      const content = extractOpenRouterText(data);
+      if (content) return { provider: "openrouter", model, content };
+
+      lastError = `OpenRouter ${model} returned empty content`;
+      if (attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 350));
         continue;
       }
-      throw new Error(lastError);
-    }
-
-    const data = await res.json();
-    const content = extractOpenRouterText(data);
-    if (content) return { provider: "openrouter", model, content };
-
-    lastError = "OpenRouter returned empty content";
-    if (attempt === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      break;
     }
   }
 

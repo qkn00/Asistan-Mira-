@@ -115,6 +115,7 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
         gemini: "Gemini",
         claude: "Claude",
         groq: "Groq",
+        cerebras: "Cerebras",
         openrouter: "OpenRouter",
       };
       const providerName = providerNames[result.provider] ?? result.provider;

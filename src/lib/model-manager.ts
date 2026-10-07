@@ -1,4 +1,4 @@
-export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "groq" | "cerebras";
+export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "cerebras";
 
 export type ModelTurn = { role: "user" | "assistant"; content: string };
 
@@ -281,39 +281,6 @@ async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   throw new Error(lastError);
 }
 
-async function callGroq(request: ModelRequest): Promise<ModelResult> {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) throw new Error("GROQ_API_KEY missing");
-
-  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
-  const messages = [
-    { role: "system", content: request.system },
-    ...recentHistory(request.history),
-    { role: "user", content: request.message },
-  ];
-
-  const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: 1200,
-    }),
-  });
-
-  if (!res.ok) throw new Error(`Groq ${res.status}: ${await readError(res)}`);
-
-  const data = await res.json();
-  const content = cleanText(data?.choices?.[0]?.message?.content);
-  if (!content) throw new Error("Groq returned empty content");
-
-  return { provider: "groq", model, content };
-}
-
 async function callCerebras(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.CEREBRAS_API_KEY;
   if (!key) throw new Error("CEREBRAS_API_KEY missing");
@@ -391,21 +358,20 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   gemini: callGemini,
   claude: callClaude,
   openrouter: callOpenRouter,
-  groq: callGroq,
   cerebras: callCerebras,
 };
 
 function providerOrder(): ModelProvider[] {
-  const configured = (process.env.MODEL_PROVIDER_ORDER || "cerebras,groq,gemini,claude,openrouter,openai")
+  const configured = (process.env.MODEL_PROVIDER_ORDER || "cerebras,gemini,claude,openrouter,openai")
     .split(",")
     .map((item) => item.trim().toLowerCase())
-    .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude" || item === "openrouter" || item === "groq" || item === "cerebras");
+    .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude" || item === "openrouter" || item === "cerebras");
 
   const unique = [...new Set(configured)];
 
   // An invalid/empty environment value must never disable all providers.
   // Fall back to the known-safe default order instead.
-  return unique.length > 0 ? unique : ["cerebras", "groq", "gemini", "claude", "openrouter", "openai"];
+  return unique.length > 0 ? unique : ["cerebras", "gemini", "claude", "openrouter", "openai"];
 }
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {

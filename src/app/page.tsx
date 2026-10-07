@@ -25,6 +25,19 @@ export default function Home() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const speakText = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'tr-TR';
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const turkishVoice = voices.find((voice) => voice.lang.toLocaleLowerCase().startsWith('tr'));
+    if (turkishVoice) utterance.voice = turkishVoice;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
@@ -92,6 +105,7 @@ export default function Home() {
             : 'Yanıt alınamadı.';
 
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+      speakText(reply);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -24,6 +24,11 @@ export default function Home() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, loading]);
 
   const speakText = async (text: string) => {
     try {
@@ -200,15 +205,15 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-col h-screen max-w-4xl mx-auto p-4 bg-slate-900 text-white relative">
-      <header className="py-4 border-b border-slate-700 flex justify-between items-center">
+    <main className="flex flex-col h-[100dvh] max-w-4xl mx-auto p-3 sm:p-4 bg-slate-900 text-white relative overflow-hidden">
+      <header className="shrink-0 py-3 sm:py-4 border-b border-slate-700 flex justify-between items-center">
         <h1 className="text-xl font-bold">Asistan Mira</h1>
         <span className="text-xs bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2 py-1 rounded">
           Görev Merkezi
         </span>
       </header>
 
-      <div className="flex-1 overflow-y-auto my-4 space-y-4 pr-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain my-3 sm:my-4 space-y-4 pr-1 sm:pr-2 pb-2">
         {messages.length === 0 && (
           <p className="text-slate-400 text-center mt-10">
             Mira hazır. Komut listesini görmek için <code className="bg-slate-800 px-2 py-1 rounded">/</code> tuşuna basabilirsin.
@@ -253,19 +258,19 @@ export default function Home() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-slate-700 pt-4">
+        <form onSubmit={handleSubmit} className="flex gap-2 border-t border-slate-700 pt-3 pb-[env(safe-area-inset-bottom)]">
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={handleInputChange}
             placeholder="Görev veya komut girin..."
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+            className="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
           />
           <button
             type="submit"
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2 rounded-lg disabled:opacity-50"
+            className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 sm:px-6 py-3 rounded-lg disabled:opacity-50"
           >
             Gönder
           </button>

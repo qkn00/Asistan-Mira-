@@ -13,6 +13,7 @@ const COMMANDS = [
   { command: '/n8n', description: 'n8n bağlantı durumunu kontrol eder' },
   { command: '/n8n-ajan ', description: 'n8n için yeni ajan oluşturma isteği başlatır' },
   { command: '/yt-viral ', description: 'YouTube Shorts otomasyonunu başlatır' },
+  { command: '/video ', description: 'Senaryodan gerçek AI video üretir' },
   { command: '/oku ', description: 'GitHub reposundan dosya içeriğini okur' },
 ];
 

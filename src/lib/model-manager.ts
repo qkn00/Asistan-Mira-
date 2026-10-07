@@ -414,13 +414,7 @@ export async function generateWithFallback(request: ModelRequest): Promise<Model
 
   for (const provider of order) {
     try {
-      const result = await providers[provider](request);
-      console.info("Mira model success", {
-        provider: result.provider,
-        model: result.model,
-        fallback: failures.length > 0,
-      });
-      return result;
+      return await providers[provider](request);
     } catch (error) {
       const reason =
         error instanceof Error && error.name === "AbortError"
@@ -429,10 +423,6 @@ export async function generateWithFallback(request: ModelRequest): Promise<Model
             ? error.message
             : String(error);
       failures.push(`${provider}: ${reason}`);
-      console.error("Mira model failed; trying next provider", {
-        provider,
-        reason: reason.slice(0, 500),
-      });
     }
   }
 

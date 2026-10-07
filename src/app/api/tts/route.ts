@@ -27,9 +27,9 @@ export async function POST(req: Request) {
       outputFormat: Constants.OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3,
     });
 
-    const audio = await tts.toRaw();
+    const audio = Buffer.from(await tts.toRaw());
 
-    return new NextResponse(Buffer.from(audio), {
+    return new NextResponse(audio, {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",

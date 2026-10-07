@@ -54,7 +54,7 @@ async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
 
   // Tek model olarak temiz ve hatasız çalışması için doğrudan environment'tan veya sabit değerden alıyoruz
-  const model = process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat";
+  const model = process.env.OPENROUTER_MODEL || "openrouter/free";
   
   const messages = [
     { role: "system", content: request.system },

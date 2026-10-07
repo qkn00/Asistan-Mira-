@@ -292,12 +292,12 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({
-          reply: `🎬 Video hazır.\\n\\n${data.videoUrl}\\n\\nÜretim doğrulandı: fal.ai / Kling O3 / 9:16 / 12 saniye.`,
+          reply: `🎬 Video hazır.\\n\\n${data.videoUrl}\\n\\nÜretim doğrulandı: Wan2.1 / ücretsiz GPU API / 9:16 / 5 saniye.`,
           emotion: 'happy',
           videoUrl: data.videoUrl,
           videoProvider: data.provider,
           videoModel: data.model,
-          videoRequestId: data.requestId,
+          videoRequestId: data.jobId,
         });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);

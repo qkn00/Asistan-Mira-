@@ -1,4 +1,4 @@
-export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "groq";
+export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "groq" | "cerebras";
 
 export type ModelTurn = { role: "user" | "assistant"; content: string };
 
@@ -314,6 +314,39 @@ async function callGroq(request: ModelRequest): Promise<ModelResult> {
   return { provider: "groq", model, content };
 }
 
+async function callCerebras(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.CEREBRAS_API_KEY;
+  if (!key) throw new Error("CEREBRAS_API_KEY missing");
+
+  const model = process.env.CEREBRAS_MODEL || "gpt-oss-120b";
+  const messages = [
+    { role: "system", content: request.system },
+    ...recentHistory(request.history),
+    { role: "user", content: request.message },
+  ];
+
+  const res = await fetchWithTimeout("https://api.cerebras.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: 1200,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Cerebras ${res.status}: ${await readError(res)}`);
+
+  const data = await res.json();
+  const content = cleanText(data?.choices?.[0]?.message?.content);
+  if (!content) throw new Error("Cerebras returned empty content");
+
+  return { provider: "cerebras", model, content };
+}
+
 async function callClaude(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ANTHROPIC_API_KEY missing");
@@ -359,19 +392,20 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   claude: callClaude,
   openrouter: callOpenRouter,
   groq: callGroq,
+  cerebras: callCerebras,
 };
 
 function providerOrder(): ModelProvider[] {
-  const configured = (process.env.MODEL_PROVIDER_ORDER || "gemini,claude,openrouter,openai")
+  const configured = (process.env.MODEL_PROVIDER_ORDER || "cerebras,groq,gemini,claude,openrouter,openai")
     .split(",")
     .map((item) => item.trim().toLowerCase())
-    .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude" || item === "openrouter" || item === "groq");
+    .filter((item): item is ModelProvider => item === "openai" || item === "gemini" || item === "claude" || item === "openrouter" || item === "groq" || item === "cerebras");
 
   const unique = [...new Set(configured)];
 
   // An invalid/empty environment value must never disable all providers.
   // Fall back to the known-safe default order instead.
-  return unique.length > 0 ? unique : ["gemini", "claude", "openrouter", "openai"];
+  return unique.length > 0 ? unique : ["cerebras", "groq", "gemini", "claude", "openrouter", "openai"];
 }
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {

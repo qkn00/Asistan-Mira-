@@ -258,6 +258,51 @@ export async function POST(req: Request) {
       }
     }
 
+    // Mira video üretimi: /video <sahne veya senaryo>
+    if (command === '/video') {
+      const prompt = message.trim().replace(/^\/video\s*/i, '').trim();
+
+      if (!prompt) {
+        return NextResponse.json({
+          reply: '🎬 Video promptunu yaz. Örnek: /video 9:16 dikey Shorts, enerjik dans challenge...',
+          emotion: 'focused',
+        });
+      }
+
+      try {
+        const base = new URL(req.url).origin;
+        const response = await fetchWithTimeout(`${base}/api/video`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ prompt }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || typeof data.videoUrl !== 'string') {
+          return NextResponse.json({
+            reply: `❌ Video üretilemedi: ${typeof data.error === 'string' ? data.error : `HTTP ${response.status}`}`,
+            emotion: 'focused',
+          });
+        }
+
+        return NextResponse.json({
+          reply: `🎬 Video hazır.\\n\\n${data.videoUrl}\\n\\nÜretim doğrulandı: fal.ai / Kling O3 / 9:16 / 12 saniye.`,
+          emotion: 'happy',
+          videoUrl: data.videoUrl,
+          videoProvider: data.provider,
+          videoModel: data.model,
+          videoRequestId: data.requestId,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        return NextResponse.json({
+          reply: `❌ Video üretim bağlantısı başarısız: ${reason.slice(0, 300)}`,
+          emotion: 'focused',
+        });
+      }
+    }
+
     // /oku komutu kontrolü
     if (message.startsWith('/oku ')) {
       const filePath = message.replace('/oku ', '').trim();

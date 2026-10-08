@@ -33,6 +33,14 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, loading]);
 
+  useEffect(() => {
+    fetch('/api/auth/login', { method: 'GET' })
+      .then((res) => {
+        if (res.ok) setEntered(true);
+      })
+      .catch(() => {});
+  }, []);
+
   const speakText = async (text: string) => {
     try {
       const res = await fetch('/api/tts', {

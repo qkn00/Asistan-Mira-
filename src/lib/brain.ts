@@ -126,18 +126,23 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     }
 
     const rawContent = result.content
-      .replace(/^\s*\`\`\`json\s*/i, "")
-      .replace(/^\s*\`\`\`\s*/i, "")
-      .replace(/\s*\`\`\`\s*$/i, "")
+      .replace(/^\s*```json\s*/i, "")
+      .replace(/^\s*```\s*/i, "")
+      .replace(/\s*```\s*$/i, "")
       .trim();
 
-    let parsed: { reply?: unknown; emotion?: unknown };
+    // Ücretsiz modeller bazen JSON yerine düz metin döndürür. Bu durumda hata
+    // vermek yerine gelen metni doğrudan cevap olarak kullanırız.
+    let parsed: { reply?: unknown; emotion?: unknown } = {};
     try {
       parsed = JSON.parse(rawContent);
     } catch {
       const match = rawContent.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error(`${result.provider} returned non-JSON content`);
-      parsed = JSON.parse(match[0]);
+      try {
+        parsed = match ? JSON.parse(match[0]) : { reply: rawContent };
+      } catch {
+        parsed = { reply: rawContent };
+      }
     }
 
     const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";

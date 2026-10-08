@@ -145,8 +145,28 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
       }
     }
 
-    const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
-    if (!reply) throw new Error(`${result.provider} returned an empty reply`);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      parsed = { reply: rawContent };
+    }
+
+    let reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
+    if (!reply) {
+      const alt = parsed as Record<string, unknown>;
+      for (const key of ["response", "message", "text", "content", "answer"]) {
+        const value = alt[key];
+        if (typeof value === "string" && value.trim()) {
+          reply = value.trim();
+          break;
+        }
+      }
+    }
+    if (!reply && rawContent && !rawContent.startsWith("{") && !rawContent.startsWith("[")) {
+      reply = rawContent;
+    }
+    if (!reply) {
+      console.error("Mira empty-reply raw:", rawContent.slice(0, 300));
+      throw new Error(`${result.provider} returned an empty reply`);
+    }
 
     const emotion: Emotion = ["happy", "surprised", "sad", "playful", "focused"].includes(String(parsed.emotion))
       ? (parsed.emotion as Emotion)

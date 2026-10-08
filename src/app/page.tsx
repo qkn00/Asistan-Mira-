@@ -248,7 +248,7 @@ export default function Home() {
         <div className="flex items-center gap-2">
           {voiceError && (
             <span className="text-[11px] text-amber-300/90" role="alert">
-              Ses çalınamadı
+              {voiceError}
             </span>
           )}
           <span className="text-xs bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2 py-1 rounded">

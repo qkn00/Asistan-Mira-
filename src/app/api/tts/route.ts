@@ -1,16 +1,26 @@
 import { NextResponse } from "next/server";
-import { EdgeTTS, Constants } from "@andresaya/edge-tts";
 
 export const runtime = "nodejs";
 
-const VOICE = "tr-TR-EmelNeural";
+const VOICE_ID = "RLMBP8MzrdD3AEkPvkr1";
+const MODEL_ID = "eleven_multilingual_v2";
+const ELEVENLABS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`;
 
 const isPrivateMode = (req: Request) =>
   req.headers.get("cookie")?.split(";").some((part) => part.trim() === "mira_private_mode=1") ?? false;
 
 export async function POST(req: Request) {
   let stage = "request";
+
   try {
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "ElevenLabs API anahtarı tanımlı değil" },
+        { status: 500 },
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const text = typeof body.text === "string"
       ? body.text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").replace(/\s{2,}/g, " ").trim()
@@ -20,70 +30,73 @@ export async function POST(req: Request) {
     if (text.length > 5000) return NextResponse.json({ error: "Metin çok uzun" }, { status: 413 });
 
     const privateMode = isPrivateMode(req);
-    const tts = new EdgeTTS();
-    stage = "synthesize";
-    console.log("[TTS] Starting Edge TTS:", JSON.stringify({
-      voice: VOICE,
-      privateMode,
-      textLength: text.length,
-      outputFormat: "audio-24khz-96kbitrate-mono-mp3",
-    }));
-    await tts.synthesize(text, VOICE, {
-      rate: privateMode ? "-6%" : "-2%",
-      pitch: privateMode ? "-3Hz" : "-1Hz",
-      volume: "90%",
-      outputFormat: Constants.OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3,
+    stage = "elevenlabs-fetch";
+
+    const response = await fetch(ELEVENLABS_URL, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: MODEL_ID,
+        output_format: "mp3_44100_128",
+        voice_settings: {
+          stability: privateMode ? 0.58 : 0.5,
+          similarity_boost: 0.78,
+          style: 0.15,
+          use_speaker_boost: true,
+        },
+      }),
     });
 
-    stage = "toRaw";
-    const audio = Buffer.from(await tts.toRaw());
-    const hasId3Header =
-      audio.length >= 3 &&
-      audio[0] === 0x49 &&
-      audio[1] === 0x44 &&
-      audio[2] === 0x33;
-    const hasMpegFrameSync =
-      audio.length >= 2 &&
-      audio[0] === 0xff &&
-      (audio[1] & 0xe0) === 0xe0;
-    const detectedFormat = hasId3Header || hasMpegFrameSync ? "MP3" : "unknown";
-
-    console.log(
-      "[TTS] Edge TTS output:",
-      JSON.stringify({
-        contentType: "audio/mpeg",
-        format: detectedFormat,
-        bytes: audio.byteLength,
-        outputFormat: "audio-24khz-96kbitrate-mono-mp3",
-        header: audio.subarray(0, 16).toString("hex"),
-      }),
-    );
-
-    stage = "validate";
-    if (detectedFormat !== "MP3") {
-      throw new Error(
-        `Edge TTS MP3 doğrulaması başarısız: format=${detectedFormat}, bytes=${audio.byteLength}`,
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("[TTS] ElevenLabs error:", JSON.stringify({
+        status: response.status,
+        body: errorBody,
+        voiceId: VOICE_ID,
+        modelId: MODEL_ID,
+      }));
+      return NextResponse.json(
+        { error: `Pınar ses üretimi başarısız: ElevenLabs ${response.status}: ${errorBody}` },
+        { status: 502 },
       );
     }
+
+    stage = "audio-read";
+    const audio = Buffer.from(await response.arrayBuffer());
+
+    if (!audio.length) {
+      throw new Error("ElevenLabs boş ses verisi döndürdü");
+    }
+
+    console.log("[TTS] ElevenLabs Pinar output:", JSON.stringify({
+      voiceId: VOICE_ID,
+      modelId: MODEL_ID,
+      contentType: response.headers.get("content-type"),
+      bytes: audio.byteLength,
+    }));
 
     return new NextResponse(audio, {
       status: 200,
       headers: {
-        "Content-Type": "audio/mpeg",
+        "Content-Type": response.headers.get("content-type")?.split(";")[0] || "audio/mpeg",
         "Content-Length": String(audio.byteLength),
         "Cache-Control": "no-store",
       },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-    console.error("[TTS] Emel TTS failed:", JSON.stringify({
+    console.error("[TTS] Pinar TTS failed:", JSON.stringify({
       stage,
       message,
-      stack,
+      stack: error instanceof Error ? error.stack : undefined,
     }));
     return NextResponse.json(
-      { error: `Emel ses üretimi başarısız: [${stage}] ${message}` },
+      { error: `Pınar ses üretimi başarısız: [${stage}] ${message}` },
       { status: 502 },
     );
   }

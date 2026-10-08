@@ -180,9 +180,6 @@ export function useSpeaker() {
 
         rafRef.current = requestAnimationFrame(syncAudio);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : String(error);
-
         console.error("Mira TTS /api/tts hatası:", error);
         setVoiceError("Ses çalınamadı");
         stopLoop();

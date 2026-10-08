@@ -192,9 +192,47 @@ export function useSpeaker() {
         rafRef.current = requestAnimationFrame(syncAudio);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.error(`Mira TTS [${stage}] hatası:`, error);
-        setVoiceError(`Ses çalınamadı: [${stage}] ${message}`);
+        console.warn(`Mira sunucu TTS kullanılamadı; tarayıcı sesi deneniyor [${stage}]:`, message);
         stopLoop();
+
+        // Keep Mira audible when the server TTS endpoint is not configured.
+        // This fallback uses the device's Turkish speech voice, not a cloned voice.
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          utterance.lang = "tr-TR";
+          utterance.rate = Math.min(2, Math.max(0.5, opts.rate ?? 1));
+          utterance.pitch = Math.min(2, Math.max(0.5, opts.pitch ?? 1.1));
+          const voices = window.speechSynthesis.getVoices();
+          const turkishVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith("tr"));
+          if (turkishVoice) utterance.voice = turkishVoice;
+
+          utterance.onstart = () => {
+            setVoiceError(null);
+            setSpeaking(true);
+            setWordIndex(0);
+          };
+          utterance.onboundary = (event) => {
+            if (event.name === "word" && words.length) {
+              const spoken = cleanText.slice(0, event.charIndex).trim().split(/\\s+/).filter(Boolean).length;
+              setWordIndex(Math.min(words.length - 1, Math.max(0, spoken)));
+            }
+          };
+          utterance.onend = () => {
+            setSpeaking(false);
+            setWordIndex(-1);
+            opts.onEnd?.();
+          };
+          utterance.onerror = () => {
+            setVoiceError("Cihazın Türkçe konuşma sesi de kullanılamıyor.");
+            setSpeaking(false);
+            setWordIndex(-1);
+          };
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+          return;
+        }
+
+        setVoiceError("Sunucu sesi ayarlanmamış ve bu cihazda tarayıcı konuşma desteği yok.");
         setSpeaking(false);
         setWordIndex(-1);
       }

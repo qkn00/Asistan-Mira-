@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// GEÇİCİ TEŞHİS: ses neden çıkmıyor görmek için ekranda uyarı gösterir.
+// Sorun çözülünce debugAlert çağrıları silinecek.
+const debugAlert = (msg: string) => {
+  try {
+    window.alert(msg);
+  } catch {
+    // ignore
+  }
+};
+
 /**
  * Text-to-speech + lip-sync driver.
  * Produces a 0..1 "mouth openness" value (ampRef) synchronized with the
@@ -197,11 +207,17 @@ export function useSpeaker() {
           rafRef.current = requestAnimationFrame(syncAudio);
           return;
         }
-      } catch {
+
+        debugAlert(
+          `TTS sunucu cevabı sorunlu: durum ${response.status}, tür ${response.headers.get("content-type") ?? "yok"}`,
+        );
+      } catch (err) {
+        debugAlert(`TTS hata: ${err instanceof Error ? err.message : String(err)}`);
         // Fall through to browser TTS.
       }
 
       if (!hasTTS) {
+        debugAlert("Tarayıcıda konuşma sentezi (speechSynthesis) yok");
         finish();
         return;
       }

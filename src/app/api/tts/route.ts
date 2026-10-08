@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 // Free default: Microsoft Edge neural TTS. Paid providers are not called automatically.
-const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE || "tr-TR-EmelNeural";
+const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE;
 const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "-10%";
 
 export async function POST(req: Request) {
@@ -15,6 +15,13 @@ export async function POST(req: Request) {
 
     if (!text) return NextResponse.json({ error: "Metin gerekli" }, { status: 400 });
     if (text.length > 5000) return NextResponse.json({ error: "Metin çok uzun" }, { status: 413 });
+
+    if (!EDGE_TTS_VOICE) {
+      return NextResponse.json(
+        { error: "Mira için ses seçilmemiş. EDGE_TTS_VOICE ayarlanmadan varsayılan bir ses kullanılmayacak." },
+        { status: 503 },
+      );
+    }
 
     const { EdgeTTS } = await import("@andresaya/edge-tts");
     const tts = new EdgeTTS();

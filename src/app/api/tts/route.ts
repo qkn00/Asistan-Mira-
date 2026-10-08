@@ -9,6 +9,7 @@ const isPrivateMode = (req: Request) =>
   req.headers.get("cookie")?.split(";").some((part) => part.trim() === "mira_private_mode=1") ?? false;
 
 export async function POST(req: Request) {
+  let stage = "request";
   try {
     const body = await req.json().catch(() => ({}));
     const text = typeof body.text === "string"
@@ -20,6 +21,13 @@ export async function POST(req: Request) {
 
     const privateMode = isPrivateMode(req);
     const tts = new EdgeTTS();
+    stage = "synthesize";
+    console.log("[TTS] Starting Edge TTS:", JSON.stringify({
+      voice: VOICE,
+      privateMode,
+      textLength: text.length,
+      outputFormat: "audio-24khz-96kbitrate-mono-mp3",
+    }));
     await tts.synthesize(text, VOICE, {
       rate: privateMode ? "-6%" : "-2%",
       pitch: privateMode ? "-3Hz" : "-1Hz",
@@ -27,6 +35,7 @@ export async function POST(req: Request) {
       outputFormat: Constants.OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3,
     });
 
+    stage = "toRaw";
     const audio = Buffer.from(await tts.toRaw());
     const hasId3Header =
       audio.length >= 3 &&
@@ -50,6 +59,7 @@ export async function POST(req: Request) {
       }),
     );
 
+    stage = "validate";
     if (detectedFormat !== "MP3") {
       throw new Error(
         `Edge TTS MP3 doğrulaması başarısız: format=${detectedFormat}, bytes=${audio.byteLength}`,
@@ -65,7 +75,16 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error("Emel TTS failed:", error);
-    return NextResponse.json({ error: "Emel ses üretimi başarısız" }, { status: 502 });
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("[TTS] Emel TTS failed:", JSON.stringify({
+      stage,
+      message,
+      stack,
+    }));
+    return NextResponse.json(
+      { error: `Emel ses üretimi başarısız: [${stage}] ${message}` },
+      { status: 502 },
+    );
   }
 }

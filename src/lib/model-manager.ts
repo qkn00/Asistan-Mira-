@@ -1,4 +1,4 @@
-export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "cerebras";
+export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "cerebras" | "ollama";
 
 export type ModelTurn = { role: "user" | "assistant"; content: string };
 
@@ -49,6 +49,38 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
   }
 }
 
+async function callOllama(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.OLLAMA_API_KEY;
+  if (!key) throw new Error("OLLAMA_API_KEY missing");
+
+  const baseUrl = (process.env.OLLAMA_BASE_URL || "https://ollama.com").replace(/\\/$/, "");
+  const model = process.env.OLLAMA_MODEL || "treyleo16/kimi-k3:latest";
+  const messages = [
+    { role: "system", content: request.system },
+    ...request.history.slice(-10),
+    { role: "user", content: request.message },
+  ];
+
+  const res = await fetchWithTimeout(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({ model, messages, stream: false }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Ollama ${model} ${res.status}: ${await readError(res)}`);
+  }
+
+  const data = await res.json();
+  const content = cleanText(data?.message?.content);
+  if (!content) throw new Error("Ollama returned empty content");
+
+  return { provider: "ollama", model, content };
+}
+
 async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
@@ -96,7 +128,7 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   gemini: async () => { throw new Error("Not used"); },
   claude: async () => { throw new Error("Not used"); },
   openrouter: callOpenRouter,
-  cerebras: async () => { throw new Error("Not used"); },
+  cerebras: async () => { throw new Error("Not used"); },\n  ollama: callOllama,
 };
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {

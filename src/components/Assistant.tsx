@@ -151,7 +151,7 @@ export default function Assistant() {
   const [subtitle, setSubtitle] = useState("");
   const [muted, setMuted] = useState(false);
   const [voiceReady, setVoiceReady] = useState<boolean | null>(null);
-  const { speak, stop, speaking, wordIndex, ampRef } = useSpeaker();
+  const { speak, stop, speaking, wordIndex, ampRef, voiceError } = useSpeaker();
 
   const faceRef = useRef<HTMLDivElement>(null);
   const mouthRef = useRef<HTMLDivElement>(null);
@@ -575,6 +575,7 @@ export default function Assistant() {
           {subtitle && (
             <div className="pointer-events-none absolute inset-x-3 bottom-[44%] z-20 text-center md:bottom-28">
               <div className="fade-up inline-block max-w-2xl rounded-2xl bg-black/55 px-4 py-2 text-sm leading-relaxed backdrop-blur md:text-lg">
+              {voiceError && <div className="mt-1 text-[11px] text-amber-300/90">Ses çalınamadı</div>}
                 {displaySubtitleWords.map((w, i) => (
                   <span key={i} className={`transition-colors ${i === wordIndex ? "text-fuchsia-300" : i < wordIndex ? "text-white" : "text-white/55"}`}>
                     {w}{" "}

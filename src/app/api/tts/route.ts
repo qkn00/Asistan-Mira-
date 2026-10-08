@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const VOICE_ID = "RLMBP8MzrdD3AEkPvkr1";
-const MODEL_ID = "eleven_multilingual_v2";
-const ELEVENLABS_URL = `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`;
+const MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 
 const isPrivateMode = (req: Request) =>
   req.headers.get("cookie")?.split(";").some((part) => part.trim() === "mira_private_mode=1") ?? false;
@@ -14,10 +12,11 @@ export async function POST(req: Request) {
 
   try {
     const apiKey = process.env.ELEVENLABS_API_KEY;
-    if (!apiKey) {
+    const voiceId = process.env.ELEVENLABS_VOICE_ID;
+    if (!apiKey || !voiceId) {
       return NextResponse.json(
-        { error: "ElevenLabs API anahtarı tanımlı değil" },
-        { status: 500 },
+        { error: "ElevenLabs bağlantısı için ELEVENLABS_API_KEY ve ELEVENLABS_VOICE_ID tanımlanmalı" },
+        { status: 503 },
       );
     }
 
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
     const privateMode = isPrivateMode(req);
     stage = "elevenlabs-fetch";
 
-    const response = await fetch(ELEVENLABS_URL, {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
       method: "POST",
       headers: {
         "xi-api-key": apiKey,
@@ -57,11 +56,11 @@ export async function POST(req: Request) {
       console.error("[TTS] ElevenLabs error:", JSON.stringify({
         status: response.status,
         body: errorBody,
-        voiceId: VOICE_ID,
+        voiceId,
         modelId: MODEL_ID,
       }));
       return NextResponse.json(
-        { error: `Pınar ses üretimi başarısız: ElevenLabs ${response.status}: ${errorBody}` },
+        { error: `Mira ses üretimi başarısız: ElevenLabs ${response.status}: ${errorBody}` },
         { status: 502 },
       );
     }
@@ -69,12 +68,10 @@ export async function POST(req: Request) {
     stage = "audio-read";
     const audio = Buffer.from(await response.arrayBuffer());
 
-    if (!audio.length) {
-      throw new Error("ElevenLabs boş ses verisi döndürdü");
-    }
+    if (!audio.length) throw new Error("ElevenLabs boş ses verisi döndürdü");
 
-    console.log("[TTS] ElevenLabs Pinar output:", JSON.stringify({
-      voiceId: VOICE_ID,
+    console.log("[TTS] Mira ElevenLabs output:", JSON.stringify({
+      voiceId,
       modelId: MODEL_ID,
       contentType: response.headers.get("content-type"),
       bytes: audio.byteLength,
@@ -90,13 +87,13 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[TTS] Pinar TTS failed:", JSON.stringify({
+    console.error("[TTS] Mira TTS failed:", JSON.stringify({
       stage,
       message,
       stack: error instanceof Error ? error.stack : undefined,
     }));
     return NextResponse.json(
-      { error: `Pınar ses üretimi başarısız: [${stage}] ${message}` },
+      { error: `Mira ses üretimi başarısız: [${stage}] ${message}` },
       { status: 502 },
     );
   }

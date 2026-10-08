@@ -142,7 +142,6 @@ export async function POST(req: Request) {
     // it does not disable safety or authorization checks.
     const privatePhrase = process.env.MIRA_PRIVATE_PHRASE?.trim().toLocaleLowerCase('tr-TR');
     const requestedPrivateMode = !!privatePhrase && message.trim().toLocaleLowerCase('tr-TR') === privatePhrase;
-    const cookieHeader = req.headers.get('cookie') ?? '';
     const storedPrivateMode = cookieHeader.split(';').some((part) => part.trim() === `${PRIVATE_MODE_COOKIE}=1`);
     const privateMode = requestedPrivateMode || storedPrivateMode;
     if (requestedPrivateMode) {

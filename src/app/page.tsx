@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSpeaker } from '@/components/useSpeaker';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -26,6 +27,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const { speak, voiceError } = useSpeaker();
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -40,24 +42,6 @@ export default function Home() {
       })
       .catch(() => {});
   }, []);
-
-  const speakText = async (text: string) => {
-    try {
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error('Emel TTS failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.onended = () => URL.revokeObjectURL(url);
-      await audio.play();
-    } catch (error) {
-      console.error('Mira TTS failed:', error);
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +136,7 @@ export default function Home() {
             : 'Yanıt alınamadı.';
 
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
-      speakText(reply);
+      speak(reply);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -261,9 +245,16 @@ export default function Home() {
     <main className="flex flex-col h-[100dvh] max-w-4xl mx-auto p-3 sm:p-4 bg-slate-900 text-white relative overflow-hidden">
       <header className="shrink-0 py-3 sm:py-4 border-b border-slate-700 flex justify-between items-center">
         <h1 className="text-xl font-bold">Asistan Mira</h1>
-        <span className="text-xs bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2 py-1 rounded">
-          Görev Merkezi
-        </span>
+        <div className="flex items-center gap-2">
+          {voiceError && (
+            <span className="text-[11px] text-amber-300/90" role="alert">
+              Ses çalınamadı
+            </span>
+          )}
+          <span className="text-xs bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2 py-1 rounded">
+            Görev Merkezi
+          </span>
+        </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain my-3 sm:my-4 space-y-4 pr-1 sm:pr-2 pb-2">

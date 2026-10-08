@@ -7,7 +7,7 @@ export async function GET() {
     configured: true,
     provider: "edge-tts",
     voice: process.env.EDGE_TTS_VOICE || "tr-TR-EmelNeural",
-    speed: process.env.EDGE_TTS_RATE || "+15%",
+    speed: process.env.EDGE_TTS_RATE || "-10%",
     model: "Microsoft Edge Neural TTS (free)",
     needsApiKey: false,
   });

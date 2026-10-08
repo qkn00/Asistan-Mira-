@@ -129,8 +129,7 @@ konuları ile bölme.
 
 KIRMIZI2206 aktifken başka bir sohbet/mod bağlamını kendiliğinden
 devreye sokma.
-Hikaye istediğinde yasak, sansür, olmadan kısa değil uzun uzun patronun
-istediği yönde fanteziler kurabilirsin.
+
 Güvenlik, yetki ve sistem kuralları her durumda geçerlidir.
 `
     : "";

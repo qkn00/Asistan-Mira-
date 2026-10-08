@@ -67,6 +67,13 @@ export function useSpeaker() {
       setSpeaking(true);
       setWordIndex(words.length ? 0 : -1);
 
+      let stage:
+        | "audiocontext"
+        | "fetch"
+        | "content-type"
+        | "decode"
+        | "play" = "audiocontext";
+
       try {
         if (typeof window === "undefined") {
           throw new Error("Tarayıcı ortamı yok");
@@ -91,6 +98,7 @@ export function useSpeaker() {
           await ctx.resume();
         }
 
+        stage = "fetch";
         const response = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -108,14 +116,17 @@ export function useSpeaker() {
           );
         }
 
+        stage = "content-type";
         const contentType = response.headers.get("content-type") ?? "";
         if (!contentType.includes("audio/")) {
           throw new Error(`/api/tts ses yerine ${contentType || "bilinmeyen veri"} döndürdü`);
         }
 
+        stage = "decode";
         const audioData = await response.arrayBuffer();
         const buffer = await ctx.decodeAudioData(audioData.slice(0));
 
+        stage = "play";
         const source = ctx.createBufferSource();
         source.buffer = buffer;
 
@@ -180,8 +191,9 @@ export function useSpeaker() {
 
         rafRef.current = requestAnimationFrame(syncAudio);
       } catch (error) {
-        console.error("Mira TTS /api/tts hatası:", error);
-        setVoiceError("Ses çalınamadı");
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`Mira TTS [${stage}] hatası:`, error);
+        setVoiceError(`Ses çalınamadı: [${stage}] ${message}`);
         stopLoop();
         setSpeaking(false);
         setWordIndex(-1);

@@ -259,5 +259,3 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     };
   }
 }
-
-Önemli: Bu dosya tek başına KIRMIZI2206'yı açıp kapatmıyor. "privateMode" değerini başka bir dosya gönderiyor. Dolayısıyla bu dosyayı değiştirsen bile KIRMIZI2206'nın gerçekten ne zaman aktif olduğunu henüz doğrulamış olmayacağız.

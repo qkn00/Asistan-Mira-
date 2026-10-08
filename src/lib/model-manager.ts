@@ -128,10 +128,18 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   gemini: async () => { throw new Error("Not used"); },
   claude: async () => { throw new Error("Not used"); },
   openrouter: callOpenRouter,
-  cerebras: async () => { throw new Error("Not used"); },\n  ollama: callOllama,
+  cerebras: async () => { throw new Error("Not used"); },
+  ollama: callOllama,
 };
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {
-  // Doğrudan OpenRouter üzerinden kararlı yanıt üretir
+  // Prefer configured Ollama Cloud; fall back to OpenRouter if Ollama fails.
+  if (process.env.OLLAMA_API_KEY) {
+    try {
+      return await callOllama(request);
+    } catch (error) {
+      console.error("[Model] Ollama failed; falling back to OpenRouter:", error);
+    }
+  }
   return await callOpenRouter(request);
 }

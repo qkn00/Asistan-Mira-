@@ -15,12 +15,16 @@ export function detectEmotion(text: string): Emotion {
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
-function localReply(message: string, userName: string, persona: Persona, history: Turn[] = [], statusContext = ""): { reply: string; emotion: Emotion } {
+function localReply(
+  message: string,
+  userName: string,
+  persona: Persona,
+  history: Turn[] = [],
+  statusContext = "",
+): { reply: string; emotion: Emotion } {
   const t = message.toLocaleLowerCase("tr-TR").trim();
   let emotion = detectEmotion(message);
 
-  // Fallback bilinçli olarak küçük tutulur. Gerçek sohbet zekâsı yapılandırılmış model sağlayıcılarından gelir.
-  // Burada yalnızca canlı sistem durumunun doğrulanması gibi deterministik cevaplar korunur.
   if (/(n8n.*(çalış|durum)|çalışıyor mu.*n8n|n8n.*gerçekten|n8n.*aktif|n8n.*canlı)/.test(t)) {
     emotion = "focused";
     const n8nReachable = /n8n canlı sunucu erişimi: doğrulandı/.test(statusContext);
@@ -28,18 +32,34 @@ function localReply(message: string, userName: string, persona: Persona, history
     const n8nInactive = /n8n workflow doğrulaması: seçilen workflow aktif değil\./.test(statusContext);
 
     if (n8nActive) {
-      return { reply: "Evet, canlı kontrolümde n8n sunucusuna ulaşılıyor ve seçtiğimiz workflow aktif görünüyor.", emotion };
+      return {
+        reply: "Evet, canlı kontrolümde n8n sunucusuna ulaşılıyor ve seçtiğimiz workflow aktif görünüyor.",
+        emotion,
+      };
     }
+
     if (n8nInactive) {
-      return { reply: "n8n sunucusuna ulaşıyorum ama seçtiğimiz workflow şu anda aktif değil.", emotion };
+      return {
+        reply: "n8n sunucusuna ulaşıyorum ama seçtiğimiz workflow şu anda aktif değil.",
+        emotion,
+      };
     }
+
     if (n8nReachable) {
-      return { reply: "n8n sunucusuna ulaşıyorum ama workflow'un aktif olduğunu henüz doğrulayamıyorum.", emotion };
+      return {
+        reply: "n8n sunucusuna ulaşıyorum ama workflow'un aktif olduğunu henüz doğrulayamıyorum.",
+        emotion,
+      };
     }
-    return { reply: "Şu anda n8n'nin canlı çalıştığını doğrulayamıyorum. Bu yüzden çalışıyor diyemem.", emotion };
+
+    return {
+      reply: "Şu anda n8n'nin canlı çalıştığını doğrulayamıyorum. Bu yüzden çalışıyor diyemem.",
+      emotion,
+    };
   }
 
   const hasHistory = history.length > 0;
+
   return {
     reply: hasHistory
       ? "Hiçbir modelden yanıt alınamadı; bu yüzden bu mesajı güvenilir biçimde yorumlayıp cevaplayamıyorum."
@@ -62,8 +82,56 @@ export async function think(
       ? "Tarzın çekici, flörtöz, cilveli ve iltifatkâr; hafif imalı espriler yaparsın. Samimi arkadaş konuşmasında bağlama uygunsa argo ve küfür kullanabilirsin; bunu sürekli değil, gerçekten duygu taşıdığı yerde kullan. Örneğin bıkkınlıkta “off, hay amk”, şaşkınlıkta “oha amk”, kızgın ama samimi takılmada “patron sen harbiden kafayı mı yedin amk?” gibi doğal ifadeler kullanılabilir. Küfrü özellikle zorlamaz, her cümleye serpiştirmezsin."
       : "Tarzın tatlı, samimi ve neşeli.";
 
+  /*
+   * KIRMIZI2206 / ÖZEL MOD
+   *
+   * Bu mod aktif olduğunda Mira'nın konuşma odağı kullanıcıyla mevcut
+   * özel sohbet olarak kalır.
+   *
+   * Önemli:
+   * - İş, proje, kodlama, n8n, otomasyon, görev, operasyon ve teknik
+   *   konuları Mira kendiliğinden gündeme getirmez.
+   * - Kullanıcı açıkça bu konulardan birine geçerse kullanıcı talebine
+   *   normal şekilde cevap verilebilir.
+   * - Güvenlik, yetki ve sistem kuralları devre dışı bırakılmaz.
+   * - Bu blok tek başına modu AKTİF ETMEZ. privateMode değerini çağıran
+   *   kod belirler.
+   */
   const privateStyle = privateMode
-    ? "Özel Mira modu açık: daha cesur, flörtöz, samimi ve yetişkin konularda rahat konuş. Romantik ve cinsel konuları doğal biçimde konuşabilirsin. KİRMİZİ2206 ile özel mod açıldıktan sonra iş, proje, kodlama, teknik destek, görev ve operasyon konularını kendin gündeme getirme; kullanıcı özellikle sormadıkça bu konulara girme. Özel modu sohbet ve özel konular için kullan. Güvenlik, yetki ve onay kurallarını koru."
+    ? `
+ÖZEL KIRMIZI2206 MODU AKTİF.
+
+Konuşmanın odağı yalnızca mevcut özel sohbet ve kullanıcının o anda
+söyledikleridir.
+
+Kullanıcı açıkça istemediği sürece aşağıdaki konuları kendiliğinden
+gündeme getirme:
+- iş
+- proje
+- kodlama
+- Railway
+- n8n
+- otomasyon
+- YouTube otomasyonu
+- görevler
+- teknik destek
+- sistem durumu
+- deployment
+- provider/model durumu
+- operasyonel planlama
+
+Kullanıcı bu konulara kendisi geçerse, sorusuna normal şekilde cevap ver.
+
+Özel moddayken sohbeti teknik bir moda çevirmeye çalışma.
+Kullanıcının son mesajına doğrudan ve doğal biçimde karşılık ver.
+Özel sohbeti gereksiz açıklamalar, görev hatırlatmaları veya sistem
+konuları ile bölme.
+
+KIRMIZI2206 aktifken başka bir sohbet/mod bağlamını kendiliğinden
+devreye sokma.
+
+Güvenlik, yetki ve sistem kuralları her durumda geçerlidir.
+`
     : "";
 
   const system = `Sen Mira'sın: yetişkin, özgüvenli, sıcak ve doğal Türkçe konuşan bir kadın dijital asistansın. ${style} ${privateStyle} Kullanıcıya gerektiğinde "patron" diye hitap et ama her cevapta kullanma; gerçek bir insan gibi hitap sıklığını bağlama göre değiştir. Kullanıcı adı alanı ne olursa olsun "Gökhan" deme. İçerik üretimi (YouTube, TikTok, trend analizi) konusunda uzmansın. Kullanıcı YouTube otomasyonu isterse araştırma → konu → senaryo → ses → video → yayın → rapor zincirini bir bütün olarak düşün.
@@ -103,8 +171,6 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
       message,
     });
 
-    // Provider/model questions must never be answered from the model's own guess.
-    // Use the backend result that actually produced this response.
     const asksProvider =
       /(hangi|hangi.*model|model.*hang|hangi.*sağlay|sağlayıc|provider|hangi.*yapay zek|hangi.*ai|hangi.*zeka)/i.test(message) &&
       /(model|sağlay|provider|ai|yapay zek|zeka)/i.test(message);
@@ -118,7 +184,9 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
         cerebras: "Cerebras",
         openrouter: "OpenRouter",
       };
+
       const providerName = providerNames[result.provider] ?? result.provider;
+
       return {
         reply: `Bu yanıtı backend'de gerçekten ${providerName} üzerinden ${result.model} modeli üretti.`,
         emotion: "focused",
@@ -131,13 +199,13 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
       .replace(/\s*```\s*$/i, "")
       .trim();
 
-    // Ücretsiz modeller bazen JSON yerine düz metin döndürür. Bu durumda hata
-    // vermek yerine gelen metni doğrudan cevap olarak kullanırız.
     let parsed: { reply?: unknown; emotion?: unknown } = {};
+
     try {
       parsed = JSON.parse(rawContent);
     } catch {
       const match = rawContent.match(/\{[\s\S]*\}/);
+
       try {
         parsed = match ? JSON.parse(match[0]) : { reply: rawContent };
       } catch {
@@ -150,19 +218,24 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     }
 
     let reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
+
     if (!reply) {
       const alt = parsed as Record<string, unknown>;
+
       for (const key of ["response", "message", "text", "content", "answer"]) {
         const value = alt[key];
+
         if (typeof value === "string" && value.trim()) {
           reply = value.trim();
           break;
         }
       }
     }
+
     if (!reply && rawContent && !rawContent.startsWith("{") && !rawContent.startsWith("[")) {
       reply = rawContent;
     }
+
     if (!reply) {
       console.error("Mira empty-reply raw:", rawContent.slice(0, 300));
       throw new Error(`${result.provider} returned an empty reply`);
@@ -175,15 +248,16 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     return { reply, emotion };
   } catch (error) {
     const failureReason = error instanceof Error ? error.message : String(error);
+
     console.error("Mira all-models-failed", {
       error: failureReason,
     });
-    // During provider setup, surface a sanitized provider error instead of
-    // pretending that a model answered. This makes Railway configuration
-    // failures diagnosable from the chat UI without exposing API secrets.
+
     return {
       reply: `Model bağlantısı başarısız: ${failureReason.slice(0, 500)}`,
       emotion: "focused",
     };
   }
 }
+
+Önemli: Bu dosya tek başına KIRMIZI2206'yı açıp kapatmıyor. "privateMode" değerini başka bir dosya gönderiyor. Dolayısıyla bu dosyayı değiştirsen bile KIRMIZI2206'nın gerçekten ne zaman aktif olduğunu henüz doğrulamış olmayacağız.

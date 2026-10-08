@@ -7,6 +7,7 @@ import { remember } from '@/lib/memory';
 import { NextResponse } from 'next/server';
 
 const PRIVATE_MODE_COOKIE = 'mira_private_mode';
+const ENTRY_COOKIE = 'mira_entry';
 
 const EXTERNAL_TIMEOUT_MS = 8000;
 const VIDEO_TIMEOUT_MS = 180000;
@@ -27,6 +28,14 @@ async function fetchWithTimeoutMs(input: RequestInfo | URL, init: RequestInit = 
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.MIRA_ENTRY_PASSWORD?.trim()) {
+      return NextResponse.json({ error: 'Mira giriş şifresi yapılandırılmamış.' }, { status: 503 });
+    }
+    const cookieHeader = req.headers.get('cookie') ?? '';
+    const authenticated = cookieHeader.split(';').some((part) => part.trim() === `${ENTRY_COOKIE}=1`);
+    if (!authenticated) {
+      return NextResponse.json({ error: 'Mira oturumu doğrulanmadı.' }, { status: 401 });
+    }
     const { message } = await req.json();
 
     if (!message || typeof message !== 'string') {

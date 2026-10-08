@@ -18,6 +18,9 @@ const COMMANDS = [
 
 export default function Home() {
   const [entered, setEntered] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,6 +48,32 @@ export default function Home() {
       await audio.play();
     } catch (error) {
       console.error('Mira TTS failed:', error);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password || authLoading) return;
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAuthError(typeof data.error === 'string' ? data.error : 'Şifre yanlış.');
+        setPassword('');
+        return;
+      }
+      setPassword('');
+      setEntered(true);
+    } catch {
+      setAuthError('Giriş doğrulaması yapılamadı. Tekrar dene.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -191,13 +220,29 @@ export default function Home() {
             <p className="mt-4 max-w-md text-sm leading-6 text-slate-400">
               Görevlerine ve otomasyonlarına odaklanan tek çalışma alanı.
             </p>
-            <button
-              type="button"
-              onClick={() => setEntered(true)}
-              className="mt-9 rounded-full border border-blue-400/30 bg-blue-500/10 px-8 py-3 text-sm font-medium text-blue-100 transition-all duration-300 hover:scale-105 hover:bg-blue-500/20"
-            >
-              Mira'ya gir
-            </button>
+            <form onSubmit={handleLogin} className="mt-9 w-full max-w-sm">
+              <label htmlFor="mira-entry-password" className="sr-only">Mira giriş şifresi</label>
+              <input
+                id="mira-entry-password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setAuthError('');
+                }}
+                placeholder="Giriş şifresi"
+                autoComplete="current-password"
+                className="w-full rounded-full border border-slate-700 bg-slate-900/90 px-5 py-3 text-center text-white placeholder:text-slate-500 outline-none focus:border-blue-500"
+              />
+              {authError && <p className="mt-2 text-sm text-red-400" role="alert">{authError}</p>}
+              <button
+                type="submit"
+                disabled={authLoading || !password}
+                className="mt-3 w-full rounded-full border border-blue-400/30 bg-blue-500/10 px-8 py-3 text-sm font-medium text-blue-100 transition-all duration-300 hover:scale-105 hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {authLoading ? 'Kontrol ediliyor...' : "Mira'ya gir"}
+              </button>
+            </form>
           </div>
         </section>
       </main>

@@ -28,6 +28,33 @@ export async function POST(req: Request) {
     });
 
     const audio = Buffer.from(await tts.toRaw());
+    const hasId3Header =
+      audio.length >= 3 &&
+      audio[0] === 0x49 &&
+      audio[1] === 0x44 &&
+      audio[2] === 0x33;
+    const hasMpegFrameSync =
+      audio.length >= 2 &&
+      audio[0] === 0xff &&
+      (audio[1] & 0xe0) === 0xe0;
+    const detectedFormat = hasId3Header || hasMpegFrameSync ? "MP3" : "unknown";
+
+    console.log(
+      "[TTS] Edge TTS output:",
+      JSON.stringify({
+        contentType: "audio/mpeg",
+        format: detectedFormat,
+        bytes: audio.byteLength,
+        outputFormat: "audio-24khz-96kbitrate-mono-mp3",
+        header: audio.subarray(0, 16).toString("hex"),
+      }),
+    );
+
+    if (detectedFormat !== "MP3") {
+      throw new Error(
+        `Edge TTS MP3 doğrulaması başarısız: format=${detectedFormat}, bytes=${audio.byteLength}`,
+      );
+    }
 
     return new NextResponse(audio, {
       status: 200,

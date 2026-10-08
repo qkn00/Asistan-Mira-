@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 
 // Free default: Microsoft Edge neural TTS. Paid providers are not called automatically.
 const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE || "tr-TR-EmelNeural";
-const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "+15%";
+const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "-10%";
 
 export async function POST(req: Request) {
   try {

@@ -247,14 +247,15 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   cerebras: callCerebras,
 };
 
-const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["openrouter", "gemini", "ollama"];
-const VALID_PROVIDERS = new Set<ModelProvider>(["gemini", "claude", "openrouter", "openai", "ollama", "cerebras"]);
+const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["openrouter", "gemini"];
+// Free-only team: do not fall through to providers that may charge per token.
+const FREE_PROVIDERS = new Set<ModelProvider>(["openrouter", "gemini"]);
 
 function getProviderOrder(): ModelProvider[] {
   const configured = (process.env.MODEL_PROVIDER_ORDER || "")
     .split(",")
     .map((value) => value.trim().toLowerCase())
-    .filter((value): value is ModelProvider => VALID_PROVIDERS.has(value as ModelProvider));
+    .filter((value): value is ModelProvider => FREE_PROVIDERS.has(value as ModelProvider));
 
   const order = configured.length ? configured : DEFAULT_PROVIDER_ORDER;
   return [...new Set(order)];

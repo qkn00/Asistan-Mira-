@@ -257,7 +257,10 @@ function getProviderOrder(): ModelProvider[] {
     .map((value) => value.trim().toLowerCase())
     .filter((value): value is ModelProvider => FREE_PROVIDERS.has(value as ModelProvider));
 
-  const order = configured.length ? configured : DEFAULT_PROVIDER_ORDER;
+  // An old Railway value such as "ollama,gemini,claude,openai" must not
+  // silently disable OpenRouter. Only honor custom order when it includes
+  // the primary free provider; otherwise use the free defaults.
+  const order = configured.includes("openrouter") ? configured : DEFAULT_PROVIDER_ORDER;
   return [...new Set(order)];
 }
 

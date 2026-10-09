@@ -108,7 +108,7 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing");
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
   const contents = [
     ...recentHistory(request.history).map((turn) => ({
       role: turn.role === "assistant" ? "model" : "user",
@@ -184,7 +184,7 @@ async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
 
-  const model = process.env.OPENROUTER_MODEL || "openai/gpt-4.1-mini";
+  const model = process.env.OPENROUTER_MODEL || "openrouter/free";
   const res = await fetchWithRetry("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -247,7 +247,7 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   cerebras: callCerebras,
 };
 
-const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["gemini", "claude", "openrouter", "openai", "ollama"];
+const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["openrouter", "gemini", "ollama"];
 const VALID_PROVIDERS = new Set<ModelProvider>(["gemini", "claude", "openrouter", "openai", "ollama", "cerebras"]);
 
 function getProviderOrder(): ModelProvider[] {

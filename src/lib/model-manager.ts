@@ -53,11 +53,11 @@ async function callOllama(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OLLAMA_API_KEY;
   if (!key) throw new Error("OLLAMA_API_KEY missing");
 
-  const baseUrl = (process.env.OLLAMA_BASE_URL || "https://ollama.com").replace(/\\/$/, "");
+  const baseUrl = (process.env.OLLAMA_BASE_URL || "https://ollama.com").replace(/\/$/, "");
   const model = process.env.OLLAMA_MODEL || "treyleo16/kimi-k3:latest";
   const messages = [
     { role: "system", content: request.system },
-    ...request.history.slice(-10),
+    ...recentHistory(request.history),
     { role: "user", content: request.message },
   ];
 
@@ -81,15 +81,66 @@ async function callOllama(request: ModelRequest): Promise<ModelResult> {
   return { provider: "ollama", model, content };
 }
 
+async function callGemini(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY missing");
+
+  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const contents = [
+    ...recentHistory(request.history).map((turn) => ({
+      role: turn.role === "assistant" ? "model" : "user",
+      parts: [{ text: turn.content }],
+    })),
+    { role: "user", parts: [{ text: request.message }] },
+  ];
+
+  const res = await fetchWithTimeout(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: request.system }] },
+        contents,
+        generationConfig: { temperature: 0.7 },
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error(`Gemini ${model} ${res.status}: ${await readError(res)}`);
+  }
+
+  const data = await res.json();
+  const content = cleanText(
+    data?.candidates?.[0]?.content?.parts
+      ?.map((part: { text?: unknown }) => cleanText(part.text))
+      .filter(Boolean)
+      .join("\n"),
+  );
+  if (!content) throw new Error("Gemini returned empty content");
+
+  return { provider: "gemini", model, content };
+}
+
 const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelResult>> = {
-  openai: async () => { throw new Error("Not used"); },
-  gemini: async () => { throw new Error("Not used"); },
-  claude: async () => { throw new Error("Not used"); },
-  cerebras: async () => { throw new Error("Not used"); },
+  openai: async () => { throw new Error("OpenAI provider is not configured"); },
+  gemini: callGemini,
+  claude: async () => { throw new Error("Claude provider is not configured"); },
+  cerebras: async () => { throw new Error("Cerebras provider is not configured"); },
   ollama: callOllama,
 };
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {
-  // Ollama Cloud tek sağlayıcıdır; başarısız olursa hatayı üst katmana ilet.
-  return await callOllama(request);
+  try {
+    return await providers.ollama(request);
+  } catch (primaryError) {
+    try {
+      return await providers.gemini(request);
+    } catch (fallbackError) {
+      const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      throw new Error(`Primary model failed (Ollama): ${primaryMessage}. Fallback failed (Gemini): ${fallbackMessage}`);
+    }
+  }
 }

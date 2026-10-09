@@ -1,4 +1,4 @@
-export type ModelProvider = "openai" | "gemini" | "claude" | "cerebras" | "ollama";
+export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "cerebras" | "ollama";
 
 export type ModelTurn = { role: "user" | "assistant"; content: string };
 
@@ -25,8 +25,7 @@ function redactSecrets(text: string): string {
 }
 
 async function readError(res: Response): Promise<string> {
-  const body = await res.text();
-  return redactSecrets(body.slice(0, 800));
+  return redactSecrets((await res.text()).slice(0, 800));
 }
 
 function recentHistory(history: ModelTurn[]): ModelTurn[] {
@@ -49,35 +48,59 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
   }
 }
 
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const maxRetries = 2;
+
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetchWithTimeout(input, init);
+    if (response.ok || !isRetryableStatus(response.status) || attempt >= maxRetries) return response;
+
+    const retryAfter = Number(response.headers.get("retry-after"));
+    const delayMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? Math.min(retryAfter * 1000, 5000)
+      : 700 * 2 ** attempt;
+
+    await response.body?.cancel().catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
+function historyForChat(request: ModelRequest) {
+  return [
+    { role: "system", content: request.system },
+    ...recentHistory(request.history),
+    { role: "user", content: request.message },
+  ];
+}
+
+function historyForOpenAI(request: ModelRequest) {
+  return historyForChat(request);
+}
+
 async function callOllama(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OLLAMA_API_KEY;
   if (!key) throw new Error("OLLAMA_API_KEY missing");
 
   const baseUrl = (process.env.OLLAMA_BASE_URL || "https://ollama.com").replace(/\/$/, "");
   const model = process.env.OLLAMA_MODEL || "treyleo16/kimi-k3:latest";
-  const messages = [
-    { role: "system", content: request.system },
-    ...recentHistory(request.history),
-    { role: "user", content: request.message },
-  ];
-
-  const res = await fetchWithTimeout(`${baseUrl}/api/chat`, {
+  const res = await fetchWithRetry(`${baseUrl}/api/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify({ model, messages, stream: false }),
+    body: JSON.stringify({ model, messages: historyForChat(request), stream: false }),
   });
 
-  if (!res.ok) {
-    throw new Error(`Ollama ${model} ${res.status}: ${await readError(res)}`);
-  }
+  if (!res.ok) throw new Error(`Ollama ${model} ${res.status}: ${await readError(res)}`);
 
   const data = await res.json();
   const content = cleanText(data?.message?.content);
   if (!content) throw new Error("Ollama returned empty content");
-
   return { provider: "ollama", model, content };
 }
 
@@ -85,7 +108,7 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing");
 
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const contents = [
     ...recentHistory(request.history).map((turn) => ({
       role: turn.role === "assistant" ? "model" : "user",
@@ -94,7 +117,7 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
     { role: "user", parts: [{ text: request.message }] },
   ];
 
-  const res = await fetchWithTimeout(
+  const res = await fetchWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
@@ -107,9 +130,7 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
     },
   );
 
-  if (!res.ok) {
-    throw new Error(`Gemini ${model} ${res.status}: ${await readError(res)}`);
-  }
+  if (!res.ok) throw new Error(`Gemini ${model} ${res.status}: ${await readError(res)}`);
 
   const data = await res.json();
   const content = cleanText(
@@ -119,28 +140,140 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
       .join("\n"),
   );
   if (!content) throw new Error("Gemini returned empty content");
-
   return { provider: "gemini", model, content };
 }
 
+async function callClaude(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("ANTHROPIC_API_KEY missing");
+
+  const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5";
+  const messages = [
+    ...recentHistory(request.history).map((turn) => ({ role: turn.role, content: turn.content })),
+    { role: "user", content: request.message },
+  ];
+
+  const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      system: request.system,
+      messages,
+      max_tokens: Number(process.env.ANTHROPIC_MAX_TOKENS) || 1200,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Claude ${model} ${res.status}: ${await readError(res)}`);
+
+  const data = await res.json();
+  const content = cleanText(
+    data?.content?.map((part: { type?: string; text?: unknown }) =>
+      part.type === "text" ? cleanText(part.text) : "",
+    ).filter(Boolean).join("\n"),
+  );
+  if (!content) throw new Error("Claude returned empty content");
+  return { provider: "claude", model, content };
+}
+
+async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error("OPENROUTER_API_KEY missing");
+
+  const model = process.env.OPENROUTER_MODEL || "openai/gpt-4.1-mini";
+  const res = await fetchWithRetry("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "HTTP-Referer": process.env.NEXT_PUBLIC_MIRA_BASE_URL || "https://aimira.up.railway.app",
+      "X-Title": "Mira AI Assistant",
+    },
+    body: JSON.stringify({
+      model,
+      messages: historyForOpenAI(request),
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`OpenRouter ${model} ${res.status}: ${await readError(res)}`);
+
+  const data = await res.json();
+  const content = cleanText(data?.choices?.[0]?.message?.content);
+  if (!content) throw new Error("OpenRouter returned empty content");
+  return { provider: "openrouter", model, content };
+}
+
+async function callOpenAI(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY missing");
+
+  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const res = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: historyForOpenAI(request),
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`OpenAI ${model} ${res.status}: ${await readError(res)}`);
+
+  const data = await res.json();
+  const content = cleanText(data?.choices?.[0]?.message?.content);
+  if (!content) throw new Error("OpenAI returned empty content");
+  return { provider: "openai", model, content };
+}
+
+async function callCerebras(): Promise<ModelResult> {
+  throw new Error("Cerebras provider is not configured");
+}
+
 const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelResult>> = {
-  openai: async () => { throw new Error("OpenAI provider is not configured"); },
   gemini: callGemini,
-  claude: async () => { throw new Error("Claude provider is not configured"); },
-  cerebras: async () => { throw new Error("Cerebras provider is not configured"); },
+  claude: callClaude,
+  openrouter: callOpenRouter,
+  openai: callOpenAI,
   ollama: callOllama,
+  cerebras: callCerebras,
 };
 
+const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["gemini", "claude", "openrouter", "openai", "ollama"];
+const VALID_PROVIDERS = new Set<ModelProvider>(["gemini", "claude", "openrouter", "openai", "ollama", "cerebras"]);
+
+function getProviderOrder(): ModelProvider[] {
+  const configured = (process.env.MODEL_PROVIDER_ORDER || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value): value is ModelProvider => VALID_PROVIDERS.has(value as ModelProvider));
+
+  const order = configured.length ? configured : DEFAULT_PROVIDER_ORDER;
+  return [...new Set(order)];
+}
+
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {
-  try {
-    return await providers.ollama(request);
-  } catch (primaryError) {
+  const failures: string[] = [];
+
+  for (const provider of getProviderOrder()) {
     try {
-      return await providers.gemini(request);
-    } catch (fallbackError) {
-      const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
-      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-      throw new Error(`Primary model failed (Ollama): ${primaryMessage}. Fallback failed (Gemini): ${fallbackMessage}`);
+      const result = await providers[provider](request);
+      console.info("[Mira LLM] provider success", { provider: result.provider, model: result.model });
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${provider}: ${message}`);
+      console.error("[Mira LLM] provider failed", { provider, error: message });
     }
   }
+
+  throw new Error(`All configured LLM providers failed. Order: ${getProviderOrder().join(" -> ")}. Details: ${failures.join(" | ")}`);
 }

@@ -94,7 +94,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     status: nextStatus,
-    n8nTriggered: action === "approve",
+    n8nTriggered: false,
     published: false,
     message: action === "approve"
       ? "Taslak onaylandı. Video üretimi ve yayınlama bu işlem tarafından başlatılmadı; ayrıca gerçekleştirilip doğrulanmalı."

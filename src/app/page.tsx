@@ -29,6 +29,7 @@ interface DraftAnalysis {
 const COMMANDS = [
   { command: '/yardım', description: 'Mira komutlarını gösterir' },
   { command: '/durum', description: 'Mira ve veritabanı durumunu kontrol eder' },
+  { command: '/taslak ', description: 'Kayıtlı taslağın tam metnini gösterir' },
   { command: '/n8n', description: 'n8n bağlantı durumunu kontrol eder' },
   { command: '/n8n-ajan ', description: 'n8n için yeni ajan oluşturma isteği başlatır' },
   { command: '/yt-viral ', description: 'YouTube Shorts otomasyonunu başlatır' },

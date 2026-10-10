@@ -74,7 +74,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const text = typeof body.text === "string"
-      ? body.text.replace(/[\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{27BF}]/gu, "").replace(/\\s{2,}/g, " ").trim()
+      ? body.text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").replace(/\s{2,}/g, " ").trim()
       : "";
 
     if (!text) return NextResponse.json({ error: "Metin gerekli" }, { status: 400 });

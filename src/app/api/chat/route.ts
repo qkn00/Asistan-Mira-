@@ -1,6 +1,6 @@
 import { think } from '../../../lib/brain';
 import { db } from '@/db';
-import { messages, memories, operations } from '@/db/schema';
+import { contentItems, messages, memories, operations } from '@/db/schema';
 import { desc, eq, ilike, sql } from 'drizzle-orm';
 import { formatMemoriesForContext, getRelevantMemories, generateForgetApprovalMessage, generateSaveApprovalMessage, parseConfirmationResponse, parseMemoryCommand } from '@/lib/memory-chat';
 import { remember } from '@/lib/memory';
@@ -335,6 +335,54 @@ export async function POST(req: Request) {
     }
 
     const result = await think(message, history, "", "flirty", memoryContext, "", privateMode);
+
+    // Explicit content-creation requests are saved as reviewable drafts.
+    // This never publishes content; the review panel remains the approval gate.
+    const asksForContentDraft =
+      /(?:taslak|shorts|reels|video|içerik).{0,100}(?:oluştur|hazırla|üret|yaz)|(?:oluştur|hazırla|üret|yaz).{0,100}(?:taslak|shorts|reels|video|içerik)/iu.test(message);
+    const hasUsableDraftReply =
+      typeof result.reply === "string" &&
+      result.reply.trim().length > 40 &&
+      !/^Model bağlantısı başarısız:/iu.test(result.reply.trim());
+
+    if (asksForContentDraft && hasUsableDraftReply) {
+      const title = message.trim().replace(/^(?:bana|lütfen)\s*/iu, "").slice(0, 160) || "Yeni YouTube Shorts taslağı";
+      const topic = message.trim().slice(0, 2000);
+
+      try {
+        const savedDraft = await db.transaction(async (tx) => {
+          const [draft] = await tx.insert(contentItems).values({
+            title,
+            platform: "youtube_shorts",
+            status: "draft",
+            topic,
+          }).returning();
+
+          await tx.insert(operations).values({
+            action: "autonomous_content_draft",
+            summary: `Mira sohbetten içerik taslağı kaydetti: ${title}`,
+            status: "success",
+            platform: draft.platform,
+            metadata: {
+              contentId: draft.id,
+              topic,
+              title,
+              script: result.reply,
+              requiresApprovalToPublish: true,
+              published: false,
+              source: "chat",
+            },
+          });
+
+          return draft;
+        });
+
+        result.reply += `\n\n✅ Taslak onay paneline kaydedildi. Taslak no: ${savedDraft.id}. Yayınlanmadı; yayın için ayrı bir işlem ve senin onayın gerekir.`;
+      } catch (saveError) {
+        console.error("Mira content draft save failed:", saveError);
+        result.reply += "\n\n⚠️ Taslağı onay paneline kaydedemedim. Kayıt doğrulanmadığı için kaydedildi diyemem; içerik yayımlanmadı.";
+      }
+    }
 
     try {
       await db.insert(messages).values([

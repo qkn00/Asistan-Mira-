@@ -21,11 +21,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Selfie özelliği yalnızca Mira özel modunda kullanılabilir. Önce KIRMIZI2206 yaz." }, { status: 403 });
     }
 
-    const token = process.env.HF_TOKEN?.trim();
-    if (!token) {
+    const rawToken = process.env.HF_TOKEN?.trim();
+    if (!rawToken) {
       return NextResponse.json({ error: "HF_TOKEN eksik. Railway Variables bölümüne Hugging Face erişim anahtarını ekle." }, { status: 503 });
     }
 
+    const token = rawToken as `hf_${string}`;
     const client = await Client.connect(SPACE_ID, { token });
     const result = await client.predict("/infer", {
       prompt: "Photorealistic casual smartphone selfie portrait of Mira, an original fictional adult woman character, shoulder-length dark brown hair, warm brown eyes, natural makeup, friendly confident expression, simple black casual top, soft natural window light, realistic skin texture, natural facial proportions, head and shoulders, front camera perspective, candid everyday selfie, no text, no watermark.",

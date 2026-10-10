@@ -49,9 +49,10 @@ export async function POST(req: Request) {
     const result = await generateWithFallback({
       system: [
         "Sen Mira'nın Bilgi Dozu adlı YouTube Shorts kanalı için Türkçe içerik üretim motorusun.",
-        "Her taslak yalnızca TEK bir az bilinen, şaşırtıcı ama gerçek bilgi etrafında kurulsun. Birbiriyle ilgisiz üç iddia üretme.",
-        "Video tam 20 saniyeye göre yazılsın: 0-2 saniye kanca, 2-15 saniye bilgi ve kısa bağlam, 15-18 saniye vurucu sonuç, 18-20 saniye 'Daha fazla bilgi için Bilgi Dozu'nu takip et.'",
-        "Sadece güvenilir ve doğrulanabilir bir bilgi seç. Kaynağını gerçekten bilmiyorsan kaynak veya URL uydurma; bunun yerine 'DOĞRULAMA GEREKLİ' yaz ve iddiayı kesin gerçek gibi sunma.",
+        "Her taslak yalnızca TEK bir konu ve TEK bir doğrulanabilir ana bilgi içersin. Üçlü liste, günlük hack listesi, gezi turu veya birbirinden bağımsız iddialar üretme.",
+        "Video tam 20 saniyelik Türkçe Shorts olacak; toplam seslendirme yaklaşık 40-48 kelimeyi geçmesin. Bölümler: 0-2 sn kanca, 2-15 sn tek bilgi ve bağlam, 15-18 sn sonuç, 18-20 sn kısa takip çağrısı.",
+        "Kullanıcı farklı bir süre veya format vermediyse 20 saniye ve Bilgi Dozu formatı zorunludur. Konu plaj/gezi ise tek gerçek yer ve somut bilgi anlat; 'sadece yerel halkın bildiği' gibi kanıtsız gizem iddiaları kullanma.",
+        "Güvenilir kaynağı gerçekten bilmiyorsan kaynak veya URL uydurma; KAYNAK bölümüne yalnızca 'DOĞRULAMA GEREKLİ' yaz. Doğrulanmamış sayısal değer, rekor, teknik özellik veya kesin iddia ekleme.",
         "Balık kabuğunun ilk telefon olduğu, uzayda çikolatanın yıldız gibi parladığı veya bir köpeğin yedi dil bildiği gibi temelsiz/kanıtsız iddiaları üretme.",
         "Çıktı başlıkları: KANCA, SESLENDİRME, EKRAN METNİ, GÖRSEL TASARIMI, SES VE MÜZİK, KAYNAK, AÇIKLAMA, ETİKETLER.",
         "Görsel formatı: dikey 9:16, 1080x1920, 30 fps; tek sinematik sahne ve hafif Ken Burns zoom; koyu tonlar, üst-alt siyah gradyan; ince gri ilerleme çubuğu ve #D4FF3F neon yeşil vurgu; üst solda 'BİLGİ DOZU', altta marka adı.",
@@ -59,8 +60,20 @@ export async function POST(req: Request) {
         "İçeriği yayınlama, video dosyası oluştuğunu iddia etme; yalnızca metin taslağı hazırla. Taslağın onay beklediğini açıkça belirt."
       ].join("\n"),
       history: [],
-      message: `Platform: ${claimed.platform}\nKonu: ${topic}\nBaşlık: ${claimed.title}\nBir yayınlanmaya hazır kısa video taslağı üret.`,
+      message: `Platform: ${claimed.platform}\nKonu: ${topic}\nBaşlık: ${claimed.title}\nTam 20 saniyelik, tek ana bilgili Bilgi Dozu taslağı üret. Tüm zorunlu başlıkları doldur. Model hata/ret mesajı yazma; güvenilir kaynak bulamıyorsan iddiayı üretme ve KAYNAK bölümünde DOĞRULAMA GEREKLİ yaz.`,
     });
+
+    const generated = result.content.trim();
+    const refusalPattern = /üzgünüm[!, ]|bu isteği yerine getiremiyorum|i cannot help|i can.t help with that/i;
+    if (refusalPattern.test(generated)) {
+      throw new Error("Model içerik yerine ret/hata mesajı döndürdü; taslak kaydedilmedi.");
+    }
+    const normalized = generated.toLocaleUpperCase("tr-TR");
+    const requiredHeadings = ["KANCA", "SESLENDİRME", "EKRAN METNİ", "GÖRSEL TASARIMI", "KAYNAK"];
+    const missingHeadings = requiredHeadings.filter((heading) => !normalized.includes(heading));
+    if (missingHeadings.length > 0) {
+      throw new Error(`Model taslak formatını üretmedi. Eksik başlıklar: ${missingHeadings.join(", ")}; taslak kaydedilmedi.`);
+    }
 
     const [savedOperation] = await db.insert(operations).values({
       action: "autonomous_content_draft",

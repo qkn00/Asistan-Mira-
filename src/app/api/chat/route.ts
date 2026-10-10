@@ -46,8 +46,16 @@ export async function POST(req: Request) {
     const command = message.trim().split(/\s+/)[0].toLocaleLowerCase('tr-TR');
 
     // Hafıza onay akışı: bekleyen kayıt/silme işlemleri yalnızca açık onayla uygulanır.
-    const pending = await db.select().from(operations).where(eq(operations.status, 'pending')).orderBy(desc(operations.id)).limit(1);
-    const pendingOp = pending[0];
+    // A broken/missing operations table must not take ordinary chat offline.
+    // Approval commands still require the database and will report their own failure.
+    let pendingOp: typeof operations.$inferSelect | undefined;
+    try {
+      const pending = await db.select().from(operations).where(eq(operations.status, 'pending')).orderBy(desc(operations.id)).limit(1);
+      pendingOp = pending[0];
+    } catch (operationsError) {
+      console.error('Mira operations table query failed; continuing without pending approval:', operationsError);
+      pendingOp = undefined;
+    }
     const confirmationCandidate = message.trim().toLocaleLowerCase('tr-TR');
     const isExplicitConfirmation = /^(?:evet,?\s*(?:hatırla|sil)|yes,?\s*(?:remember|delete)|onayla,?\s*(?:hatırla|sil)|hayır|hayir|hayır,?\s*(?:sakın|sakin|tut)|hayir,?\s*(?:sakin|tut)|no|nope|non|refuse|reddet|iptal|cancel)!?$/iu.test(confirmationCandidate);
     const confirmation = isExplicitConfirmation ? parseConfirmationResponse(message) : null;

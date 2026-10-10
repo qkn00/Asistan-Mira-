@@ -29,6 +29,8 @@ Bu belge, Mira kod tabanının gerçek testlerle denetlenmesinin sonucudur.
 - `src/app/api/automation/produce/route.ts` — gerçek akış: taslak → LLM 3 görsel promptu → TTS+altyazı → Civitai 3 görsel → MP4 → `content_assets` + içerik `ready` olur. `mock:true` ile DB/Civitai/LLM'siz tam test destekler.
 - `src/app/api/video/asset/[id]/route.ts` — üretilen videoyu Postgres'ten sunar (?content=ID ile en yeni video).
 - Yeni DB tablosu: `content_assets` (Railway'de `npm run db:push` ile oluşturulmalı).
+- Gerçek akış hâlâ kanıt bekliyor: Civitai ve LLM anahtarları ile canlı koşu yapılacak.
+
 ## 7. YouTube Upload Modülü (10 Ekim 2026 akşamı eklendi)
 
 - `src/lib/youtube.ts` — bağımsız OAuth2 + resumable `videos.insert` (googleapis bağımlılığı yok). Token'lar `integrations` tablosunda.

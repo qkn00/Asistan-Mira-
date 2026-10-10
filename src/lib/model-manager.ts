@@ -6,6 +6,7 @@ export type ModelRequest = {
   system: string;
   history: ModelTurn[];
   message: string;
+  privateMode?: boolean;
 };
 
 export type ModelResult = {
@@ -292,6 +293,14 @@ function getProviderOrder(): ModelProvider[] {
 }
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {
+  // KIRMIZI2206 intentionally uses its configured Ollama model only.
+  // Do not silently switch to a different provider in private mode.
+  if (request.privateMode) {
+    const result = await callOllama(request);
+    console.info("[Mira LLM] private mode provider success", { provider: result.provider, model: result.model });
+    return result;
+  }
+
   const failures: string[] = [];
 
   for (const provider of getProviderOrder()) {

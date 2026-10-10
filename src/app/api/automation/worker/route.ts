@@ -57,7 +57,7 @@ export async function POST(req: Request) {
         "Görsel formatı: dikey 9:16, 1080x1920, 30 fps; tek sinematik sahne ve hafif Ken Burns zoom; koyu tonlar, üst-alt siyah gradyan; ince gri ilerleme çubuğu ve #D4FF3F neon yeşil vurgu; üst solda 'BİLGİ DOZU', altta marka adı.",
         "Ekran metni kısa, okunaklı ve 2-3 satır olsun; anahtar son ifade neon yeşil vurgulansın. Türkçe doğal ve otoriter ses, kelime kelime senkron altyazı, düşük seviyeli gizemli müzik kullan.",
         "İçeriği yayınlama, video dosyası oluştuğunu iddia etme; yalnızca metin taslağı hazırla. Taslağın onay beklediğini açıkça belirt."
-      ].join("\\n"),
+      ].join("\n"),
       history: [],
       message: `Platform: ${claimed.platform}\nKonu: ${topic}\nBaşlık: ${claimed.title}\nBir yayınlanmaya hazır kısa video taslağı üret.`,
     });

@@ -100,3 +100,16 @@ export const memories = pgTable("memories", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Üretilen medya dosyaları (MP4, MP3, görseller) Railway'in geçici diskinde
+// kaybolmaması için Postgres'te base64 olarak tutulur.
+export const contentAssets = pgTable("content_assets", {
+  id: serial("id").primaryKey(),
+  contentId: integer("content_id").notNull(),
+  kind: text("kind").notNull(), // "video" | "audio" | "image"
+  mime: text("mime").notNull(),
+  data: text("data").notNull(), // base64
+  bytes: integer("bytes").notNull(),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

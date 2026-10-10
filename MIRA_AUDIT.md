@@ -19,6 +19,17 @@ Bu belge, Mira kod tabanının gerçek testlerle denetlenmesinin sonucudur.
 | YouTube trend araştırması | ⚠️ Test edilemedi | `YOUTUBE_API_KEY` bu ortamda yok |
 | LLM sağlayıcıları (OpenRouter/Groq/Gemini/Ollama) | ⚠️ Test edilemedi | API anahtarları bu ortamda yok |
 | Veritabanı akışları (kuyruk, taslak, onay) | ⚠️ Test edilemedi | `DATABASE_URL` bu ortamda yok |
+| Üretim motoru (mock mod, uçtan uca) | ✅ Çalışıyor (yeni eklendi) | `/api/automation/produce` → 18.4s MP4, ~8.5 sn üretim süresi |
+| Render lib refactor regresyonu | ✅ Çalışıyor | Refactor sonrası `/api/video/render` 200 + doğru süre |
+
+## 6. Üretim Motoru (10 Ekim 2026 akşamı eklendi)
+
+- `src/lib/render-video.ts` — render çekirdeği route'tan bağımsız lib oldu; route artık ince sarmalayıcı.
+- `src/lib/script-parse.ts` — worker taslağından SESLENDİRME vb. bölümleri çıkarır.
+- `src/app/api/automation/produce/route.ts` — gerçek akış: taslak → LLM 3 görsel promptu → TTS+altyazı → Civitai 3 görsel → MP4 → `content_assets` + içerik `ready` olur. `mock:true` ile DB/Civitai/LLM'siz tam test destekler.
+- `src/app/api/video/asset/[id]/route.ts` — üretilen videoyu Postgres'ten sunar (?content=ID ile en yeni video).
+- Yeni DB tablosu: `content_assets` (Railway'de `npm run db:push` ile oluşturulmalı).
+- Gerçek akış hâlâ kanıt bekliyor: Civitai ve LLM anahtarları ile canlı koşu yapılacak.
 
 ## 2. Düzeltilen Hatalar
 

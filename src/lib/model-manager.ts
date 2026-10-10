@@ -1,4 +1,4 @@
-export type ModelProvider = "groq" | "openai" | "gemini" | "claude" | "cerebras" | "ollama";
+export type ModelProvider = "openrouter" | "groq" | "openai" | "gemini" | "claude" | "cerebras" | "ollama";
 
 export type ModelTurn = { role: "user" | "assistant"; content: string };
 
@@ -181,6 +181,35 @@ async function callClaude(request: ModelRequest): Promise<ModelResult> {
   return { provider: "claude", model, content };
 }
 
+
+async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error("OPENROUTER_API_KEY missing");
+
+  const model = process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b";
+  const res = await fetchWithRetry("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://railway.app",
+      "X-Title": process.env.OPENROUTER_APP_NAME || "Mira",
+    },
+    body: JSON.stringify({
+      model,
+      messages: historyForOpenAI(request),
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`OpenRouter ${model} ${res.status}: ${await readError(res)}`);
+
+  const data = await res.json();
+  const content = cleanText(data?.choices?.[0]?.message?.content);
+  if (!content) throw new Error("OpenRouter returned empty content");
+  return { provider: "openrouter", model, content };
+}
+
 async function callGroq(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("GROQ_API_KEY missing");
@@ -238,6 +267,7 @@ async function callCerebras(): Promise<ModelResult> {
 }
 
 const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelResult>> = {
+  openrouter: callOpenRouter,
   groq: callGroq,
   gemini: callGemini,
   claude: callClaude,
@@ -246,9 +276,9 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   cerebras: callCerebras,
 };
 
-// Mira uses Kimi through Ollama Cloud first, then Gemini, then Groq if configured.
-const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["ollama", "gemini"];
-const ALLOWED_PROVIDER_ORDER = new Set<ModelProvider>(["ollama", "gemini", "groq"]);
+// Provider priority requested for Mira: OpenRouter first, Groq second, then Gemini and Ollama backups.
+const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["openrouter", "groq", "gemini", "ollama"];
+const ALLOWED_PROVIDER_ORDER = new Set<ModelProvider>(["openrouter", "groq", "gemini", "ollama"]);
 
 function getProviderOrder(): ModelProvider[] {
   const configured = (process.env.MODEL_PROVIDER_ORDER || "")
@@ -256,11 +286,9 @@ function getProviderOrder(): ModelProvider[] {
     .map((value) => value.trim().toLowerCase())
     .filter((value): value is ModelProvider => ALLOWED_PROVIDER_ORDER.has(value as ModelProvider));
 
-  // Keep the requested order fixed: Kimi first, Gemini second. Groq is an
-  // optional third fallback only when explicitly listed in Railway variables.
-  return configured.includes("groq")
-    ? [...DEFAULT_PROVIDER_ORDER, "groq"]
-    : [...DEFAULT_PROVIDER_ORDER];
+  // Keep the requested priority fixed: OpenRouter first, Groq second.
+  // Remaining providers are backups if the first two fail.
+  return DEFAULT_PROVIDER_ORDER;
 }
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {

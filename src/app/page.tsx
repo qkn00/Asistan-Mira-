@@ -18,6 +18,14 @@ interface ContentDraft {
   generation: { provider?: string | null; model?: string | null } | null;
 }
 
+interface DraftAnalysis {
+  report: string | null;
+  createdAt: string | null;
+  titles: Array<{ id: number; title: string }>;
+  provider: string | null;
+  model: string | null;
+}
+
 const COMMANDS = [
   { command: '/yardım', description: 'Mira komutlarını gösterir' },
   { command: '/durum', description: 'Mira ve veritabanı durumunu kontrol eder' },
@@ -42,7 +50,26 @@ export default function Home() {
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState<number | null>(null);
   const [draftsError, setDraftsError] = useState('');
+  const [analysis, setAnalysis] = useState<DraftAnalysis | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
+  const [analysisOpen, setAnalysisOpen] = useState(true);
   const { speak, voiceError } = useSpeaker();
+
+  async function loadAnalysis() {
+    setAnalysisLoading(true);
+    setAnalysisError('');
+    try {
+      const res = await fetch('/api/content/analysis', { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Analiz raporu alınamadı (HTTP ${res.status}).`);
+      setAnalysis(data && typeof data === 'object' ? data as DraftAnalysis : null);
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Analiz raporu alınamadı.');
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
 
   async function loadDrafts() {
     setDraftsLoading(true);
@@ -98,7 +125,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (entered) void loadDrafts();
+    if (entered) {
+      void loadDrafts();
+      void loadAnalysis();
+    }
   }, [entered]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -316,6 +346,47 @@ export default function Home() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain my-3 sm:my-4 space-y-4 pr-1 sm:pr-2 pb-2">
+        <section className="rounded-xl border border-violet-500/30 bg-slate-800/80 p-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAnalysisOpen((open) => !open)}
+              aria-expanded={analysisOpen}
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            >
+              <span className="font-semibold text-white">Mira Taslak Analiz Raporu</span>
+              <span className="ml-auto text-slate-400" aria-hidden="true">{analysisOpen ? '▴' : '▾'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void loadAnalysis()}
+              disabled={analysisLoading}
+              className="shrink-0 rounded-lg border border-slate-600 px-3 py-2 text-xs hover:bg-slate-700 disabled:opacity-50"
+            >
+              {analysisLoading ? 'Yükleniyor…' : 'Yenile'}
+            </button>
+          </div>
+          {analysisOpen && (
+            <div className="mt-3 space-y-2">
+              {analysisError && <p className="text-sm text-red-300" role="alert">{analysisError}</p>}
+              {analysisLoading && !analysis && <p className="text-sm text-slate-400">Son analiz raporu yükleniyor…</p>}
+              {!analysisLoading && !analysisError && !analysis?.report && (
+                <p className="text-sm text-slate-400">Henüz kaydedilmiş bir analiz raporu bulunamadı. Otomasyonun bir sonraki başarılı analizinden sonra burada görünecek.</p>
+              )}
+              {analysis?.report && (
+                <>
+                  <p className="text-xs text-slate-400">
+                    {analysis.createdAt ? `Rapor zamanı: ${new Date(analysis.createdAt).toLocaleString('tr-TR')}` : 'Son kaydedilen rapor'}
+                    {analysis.provider ? ` · ${analysis.provider}` : ''}
+                    {analysis.model ? ` / ${analysis.model}` : ''}
+                  </p>
+                  <pre className="whitespace-pre-wrap break-words rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm leading-relaxed text-slate-200 font-sans">{analysis.report}</pre>
+                  <p className="text-xs text-emerald-300">Bu rapor taslakları değiştirmez ve içerik yayınlamaz. Kaynak doğrulaması ayrıca yapılmalıdır.</p>
+                </>
+              )}
+            </div>
+          )}
+        </section>
         <section className="rounded-xl border border-blue-500/30 bg-slate-800/80 p-3">
           <div className="flex items-center justify-between gap-2">
             <button

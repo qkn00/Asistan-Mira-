@@ -1,4 +1,4 @@
-export type ModelProvider = "openai" | "gemini" | "claude" | "openrouter" | "cerebras" | "ollama";
+export type ModelProvider = "groq" | "openai" | "gemini" | "claude" | "openrouter" | "cerebras" | "ollama";
 
 export type ModelTurn = { role: "user" | "assistant"; content: string };
 
@@ -21,7 +21,8 @@ function cleanText(value: unknown): string {
 function redactSecrets(text: string): string {
   return text
     .replace(/sk-[A-Za-z0-9_\-*]{6,}/g, "sk-***")
-    .replace(/AIza[A-Za-z0-9_\-]{10,}/g, "AIza***");
+    .replace(/AIza[A-Za-z0-9_\-]{10,}/g, "AIza***")
+    .replace(/gsk_[A-Za-z0-9]{10,}/g, "gsk_***");
 }
 
 async function readError(res: Response): Promise<string> {
@@ -36,7 +37,7 @@ function recentHistory(history: ModelTurn[]): ModelTurn[] {
 
 const configuredTimeout = Number(process.env.MODEL_TIMEOUT_MS);
 const PROVIDER_TIMEOUT_MS =
-  Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 20000;
+  Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 12000;
 
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
@@ -53,7 +54,7 @@ function isRetryableStatus(status: number): boolean {
 }
 
 async function fetchWithRetry(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const maxRetries = 2;
+  const maxRetries = 0;
 
   for (let attempt = 0; ; attempt += 1) {
     const response = await fetchWithTimeout(input, init);
@@ -180,6 +181,32 @@ async function callClaude(request: ModelRequest): Promise<ModelResult> {
   return { provider: "claude", model, content };
 }
 
+async function callGroq(request: ModelRequest): Promise<ModelResult> {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error("GROQ_API_KEY missing");
+
+  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+  const res = await fetchWithRetry("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: historyForOpenAI(request),
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Groq ${model} ${res.status}: ${await readError(res)}`);
+
+  const data = await res.json();
+  const content = cleanText(data?.choices?.[0]?.message?.content);
+  if (!content) throw new Error("Groq returned empty content");
+  return { provider: "groq", model, content };
+}
+
 async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
@@ -239,6 +266,7 @@ async function callCerebras(): Promise<ModelResult> {
 }
 
 const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelResult>> = {
+  groq: callGroq,
   gemini: callGemini,
   claude: callClaude,
   openrouter: callOpenRouter,
@@ -247,9 +275,9 @@ const providers: Record<ModelProvider, (request: ModelRequest) => Promise<ModelR
   cerebras: callCerebras,
 };
 
-const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["openrouter", "gemini"];
-// Free-only team: do not fall through to providers that may charge per token.
-const FREE_PROVIDERS = new Set<ModelProvider>(["openrouter", "gemini"]);
+const DEFAULT_PROVIDER_ORDER: ModelProvider[] = ["groq", "openrouter", "gemini"];
+// Free-first team: only use the configured Groq/OpenRouter/Gemini providers.
+const FREE_PROVIDERS = new Set<ModelProvider>(["groq", "openrouter", "gemini"]);
 
 function getProviderOrder(): ModelProvider[] {
   const configured = (process.env.MODEL_PROVIDER_ORDER || "")
@@ -260,7 +288,7 @@ function getProviderOrder(): ModelProvider[] {
   // An old Railway value such as "ollama,gemini,claude,openai" must not
   // silently disable OpenRouter. Only honor custom order when it includes
   // the primary free provider; otherwise use the free defaults.
-  const order = configured.includes("openrouter") ? configured : DEFAULT_PROVIDER_ORDER;
+  const order = configured.includes("openrouter") && configured.includes("groq") ? configured : DEFAULT_PROVIDER_ORDER;
   return [...new Set(order)];
 }
 

@@ -109,7 +109,7 @@ async function callGemini(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing");
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
   const contents = [
     ...recentHistory(request.history).map((turn) => ({
       role: turn.role === "assistant" ? "model" : "user",
@@ -256,12 +256,11 @@ function getProviderOrder(): ModelProvider[] {
     .map((value) => value.trim().toLowerCase())
     .filter((value): value is ModelProvider => ALLOWED_PROVIDER_ORDER.has(value as ModelProvider));
 
-  // Keep Kimi + Gemini as the required primary/fallback pair. Groq may be
-  // added as a third fallback; OpenRouter is intentionally removed.
-  const order = configured.includes("ollama") && configured.includes("gemini")
-    ? configured
-    : DEFAULT_PROVIDER_ORDER;
-  return [...new Set(order)];
+  // Keep the requested order fixed: Kimi first, Gemini second. Groq is an
+  // optional third fallback only when explicitly listed in Railway variables.
+  return configured.includes("groq")
+    ? [...DEFAULT_PROVIDER_ORDER, "groq"]
+    : [...DEFAULT_PROVIDER_ORDER];
 }
 
 export async function generateWithFallback(request: ModelRequest): Promise<ModelResult> {

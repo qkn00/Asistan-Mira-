@@ -12,7 +12,9 @@ function audioResponse(audio: ArrayBuffer | Uint8Array, provider: string) {
   const bytes = audio instanceof Uint8Array ? audio : new Uint8Array(audio);
   if (!bytes.length) throw new Error(provider + " boş ses verisi döndürdü");
   console.log("[TTS] Audio generated:", JSON.stringify({ provider, bytes: bytes.length }));
-  return new NextResponse(bytes, {
+  const body = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(body).set(bytes);
+  return new NextResponse(body, {
     status: 200,
     headers: {
       "Content-Type": "audio/mpeg",

@@ -1,7 +1,37 @@
 import { db } from "@/db";
 import { contentItems, operations } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return NextResponse.json({ error: "Geçersiz içerik" }, { status: 400 });
+  }
+
+  const [content] = await db.select().from(contentItems).where(eq(contentItems.id, id)).limit(1);
+  if (!content) return NextResponse.json({ error: "İçerik bulunamadı" }, { status: 404 });
+
+  const draftOperations = await db.select().from(operations)
+    .where(eq(operations.action, "autonomous_content_draft"))
+    .orderBy(desc(operations.id))
+    .limit(50);
+  const draft = draftOperations.find((operation) => {
+    const metadata = operation.metadata && typeof operation.metadata === "object"
+      ? operation.metadata as Record<string, unknown>
+      : {};
+    return metadata.contentId === id && typeof metadata.script === "string";
+  });
+  const metadata = draft?.metadata && typeof draft.metadata === "object"
+    ? draft.metadata as Record<string, unknown>
+    : {};
+
+  return NextResponse.json({
+    ...content,
+    generatedScript: typeof metadata.script === "string" ? metadata.script : null,
+    generation: draft ? { provider: metadata.provider ?? null, model: metadata.model ?? null, status: draft.status } : null,
+  });
+}
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);

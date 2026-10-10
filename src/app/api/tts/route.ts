@@ -14,7 +14,7 @@ function audioResponse(audio: ArrayBuffer | Uint8Array, provider: string) {
   console.log("[TTS] Audio generated:", JSON.stringify({ provider, bytes: bytes.length }));
   const body = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(body).set(bytes);
-  return new NextResponse(body, {
+  return new NextResponse(body as BodyInit, {
     status: 200,
     headers: {
       "Content-Type": "audio/mpeg",

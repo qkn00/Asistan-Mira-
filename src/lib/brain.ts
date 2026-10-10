@@ -140,6 +140,7 @@ Bu durum özetindeki bilgileri mevcut sistem durumu olarak kabul et; eksik veya 
 Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"playful"|"focused"}`;
 
   try {
+    // Keep privateMode aligned with ModelRequest in model-manager.ts.
     const result = await generateWithFallback({
       system,
       history,

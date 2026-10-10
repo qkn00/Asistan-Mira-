@@ -6,6 +6,7 @@ import { useSpeaker } from '@/components/useSpeaker';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
 }
 
 interface ContentDraft {
@@ -274,10 +275,11 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const wantsSelfie = /(?:selfie|selfini|selfie çek|fotoğrafını çek|kendi fotoğrafını|resmini çek)/i.test(userMessage);
+      const res = await fetch(wantsSelfie ? '/api/image/selfie' : '/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify(wantsSelfie ? {} : { message: userMessage }),
       });
 
       // Do not blindly call res.json(): deployment/proxy errors can return
@@ -311,7 +313,10 @@ export default function Home() {
             ? data.error
             : 'Yanıt alınamadı.';
 
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+      const imageUrl = data && typeof data === 'object' && 'imageUrl' in data && typeof data.imageUrl === 'string'
+        ? data.imageUrl
+        : undefined;
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply, ...(imageUrl ? { imageUrl } : {}) }]);
       speak(reply);
     } catch (err: any) {
       setMessages((prev) => [
@@ -357,6 +362,13 @@ export default function Home() {
     return (
       <div className="space-y-2">
         <div className="whitespace-pre-wrap text-slate-100">{msg.content}</div>
+        {msg.imageUrl && (
+          <img
+            src={msg.imageUrl}
+            alt="Mira'nın oluşturduğu selfie"
+            className="mt-3 w-full max-w-md rounded-xl border border-slate-700"
+          />
+        )}
         {msg.role === 'assistant' && (
           <div className="flex justify-end pt-1">
             <button

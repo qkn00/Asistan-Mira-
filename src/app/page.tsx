@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSpeaker } from '@/components/useSpeaker';
 
 interface Message {
@@ -34,6 +34,69 @@ const COMMANDS = [
   { command: '/yt-viral ', description: 'YouTube Shorts otomasyonunu başlatır' },
   { command: '/oku ', description: 'GitHub reposundan dosya içeriğini okur' },
 ];
+
+function renderAnalysisReport(report: string): ReactNode[] {
+  const lines = report.split(/\r?\n/);
+  const blocks: ReactNode[] = [];
+  let i = 0;
+
+  const isTableSeparator = (line: string) =>
+    /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+
+  const parseCells = (line: string) =>
+    line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) =>
+      cell.trim().replace(/<br\s*\/?\s*>/gi, '\n')
+    );
+
+  while (i < lines.length) {
+    if (lines[i].trim().startsWith('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      const headers = parseCells(lines[i]);
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        rows.push(parseCells(lines[i]));
+        i += 1;
+      }
+      blocks.push(
+        <div key={`table-${i}`} className="max-w-full overflow-x-auto rounded-lg border border-slate-700">
+          <table className="w-full min-w-[900px] border-collapse text-left text-xs sm:text-sm">
+            <thead className="bg-slate-800 text-slate-100">
+              <tr>
+                {headers.map((header, index) => (
+                  <th key={index} className="border-b border-slate-600 px-3 py-3 font-semibold align-top">{header.replace(/\*\*/g, '')}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-slate-900' : 'bg-slate-800/60'}>
+                  {headers.map((_, cellIndex) => (
+                    <td key={cellIndex} className="border-b border-slate-700 px-3 py-3 align-top whitespace-pre-wrap break-words text-slate-200">
+                      {(row[cellIndex] ?? '').replace(/\*\*/g, '')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    const paragraph: string[] = [];
+    while (i < lines.length && !(lines[i].trim().startsWith('|') && i + 1 < lines.length && isTableSeparator(lines[i + 1]))) {
+      paragraph.push(lines[i].replace(/<br\s*\/?\s*>/gi, '\n'));
+      i += 1;
+    }
+    const text = paragraph.join('\n').trim();
+    if (text) {
+      blocks.push(<div key={`text-${i}`} className="whitespace-pre-wrap break-words text-slate-200">{text.replace(/\*\*/g, '')}</div>);
+    }
+  }
+
+  return blocks;
+}
 
 export default function Home() {
   const [entered, setEntered] = useState(false);
@@ -380,7 +443,7 @@ export default function Home() {
                     {analysis.provider ? ` · ${analysis.provider}` : ''}
                     {analysis.model ? ` / ${analysis.model}` : ''}
                   </p>
-                  <pre className="whitespace-pre-wrap break-words rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm leading-relaxed text-slate-200 font-sans">{analysis.report}</pre>
+                  <div className="space-y-3 rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm leading-relaxed">{renderAnalysisReport(analysis.report)}</div>
                   <p className="text-xs text-emerald-300">Bu rapor taslakları değiştirmez ve içerik yayınlamaz. Kaynak doğrulaması ayrıca yapılmalıdır.</p>
                 </>
               )}

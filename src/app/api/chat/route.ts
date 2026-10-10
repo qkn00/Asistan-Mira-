@@ -226,7 +226,7 @@ export async function POST(req: Request) {
 
     // /taslak <id>: Read the exact saved draft from the database without changing it.
     if (command === '/taslak') {
-      const idText = message.trim().split(/\\s+/)[1];
+      const idText = message.trim().split(/\s+/)[1];
       const id = Number(idText);
       if (!idText || !Number.isInteger(id) || id <= 0) {
         return NextResponse.json({

@@ -8,6 +8,16 @@ interface Message {
   content: string;
 }
 
+interface ContentDraft {
+  id: number;
+  title: string;
+  platform: string;
+  topic: string | null;
+  status: string;
+  generatedScript: string | null;
+  generation: { provider?: string | null; model?: string | null } | null;
+}
+
 const COMMANDS = [
   { command: '/yardım', description: 'Mira komutlarını gösterir' },
   { command: '/durum', description: 'Mira ve veritabanı durumunu kontrol eder' },
@@ -27,7 +37,50 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [drafts, setDrafts] = useState<ContentDraft[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  const [reviewBusyId, setReviewBusyId] = useState<number | null>(null);
+  const [draftsError, setDraftsError] = useState('');
   const { speak, voiceError } = useSpeaker();
+
+  async function loadDrafts() {
+    setDraftsLoading(true);
+    setDraftsError('');
+    try {
+      const res = await fetch('/api/content/review', { cache: 'no-store' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Taslaklar alınamadı (HTTP ${res.status}).`);
+      setDrafts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setDraftsError(error instanceof Error ? error.message : 'Taslaklar alınamadı.');
+    } finally {
+      setDraftsLoading(false);
+    }
+  }
+
+  async function reviewDraft(id: number, action: 'approve' | 'reject') {
+    if (reviewBusyId !== null) return;
+    const prompt = action === 'approve'
+      ? 'Bu taslağı onaylamak istiyor musun? Bu işlem içeriği yayınlamaz.'
+      : 'Bu taslağı reddetmek istiyor musun?';
+    if (!window.confirm(prompt)) return;
+    setReviewBusyId(id);
+    setDraftsError('');
+    try {
+      const res = await fetch('/api/content/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `İşlem başarısız (HTTP ${res.status}).`);
+      setDrafts((current) => current.filter((draft) => draft.id !== id));
+    } catch (error) {
+      setDraftsError(error instanceof Error ? error.message : 'İşlem tamamlanamadı.');
+    } finally {
+      setReviewBusyId(null);
+    }
+  }
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -42,6 +95,10 @@ export default function Home() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (entered) void loadDrafts();
+  }, [entered]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,6 +315,63 @@ export default function Home() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain my-3 sm:my-4 space-y-4 pr-1 sm:pr-2 pb-2">
+        <section className="rounded-xl border border-blue-500/30 bg-slate-800/80 p-3 sm:p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-white">İçerik Taslakları</h2>
+              <p className="text-xs text-slate-400">Onayladığın içerik bile otomatik yayınlanmaz.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadDrafts()}
+              disabled={draftsLoading}
+              className="shrink-0 rounded-lg border border-slate-600 px-3 py-2 text-xs hover:bg-slate-700 disabled:opacity-50"
+            >
+              {draftsLoading ? 'Yükleniyor…' : 'Yenile'}
+            </button>
+          </div>
+          {draftsError && <p className="text-sm text-red-300" role="alert">{draftsError}</p>}
+          {!draftsLoading && drafts.length === 0 && !draftsError && (
+            <p className="text-sm text-slate-400">Bekleyen taslak yok. Yeni taslaklar burada görünecek.</p>
+          )}
+          {drafts.map((draft) => (
+            <article key={draft.id} className="rounded-lg border border-slate-700 bg-slate-900 p-3 space-y-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-medium text-white">{draft.title}</h3>
+                  <p className="text-xs text-slate-400">{draft.platform}{draft.topic ? ` · ${draft.topic}` : ''}</p>
+                </div>
+                <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs text-amber-300">Onay bekliyor</span>
+              </div>
+              {draft.generatedScript ? (
+                <pre className="whitespace-pre-wrap break-words text-sm text-slate-200 font-sans">{draft.generatedScript}</pre>
+              ) : (
+                <p className="text-sm text-slate-400">Bu kayıt için oluşturulmuş senaryo bulunamadı.</p>
+              )}
+              {draft.generation?.provider && (
+                <p className="text-[11px] text-slate-500">Model: {draft.generation.provider}{draft.generation.model ? ` / ${draft.generation.model}` : ''}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void reviewDraft(draft.id, 'approve')}
+                  disabled={reviewBusyId !== null}
+                  className="flex-1 rounded-lg bg-emerald-700 px-3 py-2.5 text-sm font-medium hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  {reviewBusyId === draft.id ? 'İşleniyor…' : 'Onayla'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void reviewDraft(draft.id, 'reject')}
+                  disabled={reviewBusyId !== null}
+                  className="flex-1 rounded-lg bg-red-900/80 px-3 py-2.5 text-sm font-medium hover:bg-red-800 disabled:opacity-50"
+                >
+                  Reddet
+                </button>
+              </div>
+            </article>
+          ))}
+        </section>
         {messages.length === 0 && (
           <p className="text-slate-400 text-center mt-10">
             Mira hazır. Komut listesini görmek için <code className="bg-slate-800 px-2 py-1 rounded">/</code> tuşuna basabilirsin.

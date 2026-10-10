@@ -2,6 +2,19 @@ import { NextResponse } from 'next/server';
 
 const ENTRY_COOKIE = 'mira_entry';
 
+// Check the existing session cookie so the app can restore login after refresh.
+export async function GET(req: Request) {
+  const hasSession = req.headers.get('cookie')?.split(';').some(
+    (part) => part.trim() === `${ENTRY_COOKIE}=1`,
+  ) ?? false;
+
+  if (!hasSession) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(req: Request) {
   const expected = process.env.MIRA_ENTRY_PASSWORD?.trim();
 

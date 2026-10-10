@@ -20,6 +20,7 @@ jobs:
         run: |
           test -n "$MIRA_BASE_URL" || (echo "Missing GitHub Actions secret: MIRA_BASE_URL" && exit 1)
           test -n "$MIRA_AUTOMATION_SECRET" || (echo "Missing GitHub Actions secret: MIRA_AUTOMATION_SECRET" && exit 1)
+          python -c 'import os, urllib.parse; u=urllib.parse.urlparse(os.environ["MIRA_BASE_URL"]); print("Mira target host:", u.hostname or "INVALID_URL"); print("Target uses HTTPS:", u.scheme == "https")'
 
       - name: Process one queued content draft
         env:

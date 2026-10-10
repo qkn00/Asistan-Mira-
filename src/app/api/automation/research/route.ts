@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { gte } from "drizzle-orm";
 import { db } from "@/db";
 import { contentItems, operations, tasks, trends } from "@/db/schema";
 import { generateWithFallback } from "@/lib/model-manager";
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     throw new Error(`Google Trends RSS HTTP ${feedResponse.status}`);
   }
   const xml = await feedResponse.text();
-  const candidates = [...xml.matchAll(/<item(?:\\s[^>]*)?>([\\s\\S]*?)<\\/item>/gi)]
+  const candidates = [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/gi)]
     .map((match) => ({
       trend: tag(match[1], "title"),
       url: tag(match[1], "link"),

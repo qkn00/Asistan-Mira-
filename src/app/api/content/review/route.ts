@@ -60,58 +60,6 @@ export async function POST(req: Request) {
 
   if (!draft) return NextResponse.json({ error: "Taslak bulunamadı veya daha önce değerlendirilmiş." }, { status: 409 });
 
-  if (action === "approve") {
-    const webhookUrl = process.env.N8N_WEBHOOK_URL?.trim();
-    if (!webhookUrl) {
-      return NextResponse.json({
-        error: "N8N_WEBHOOK_URL ayarlanmamış. Taslak onaylanmadı; Railway değişkeni eklenmeli.",
-      }, { status: 503 });
-    }
-
-    const draftOps = await db.select().from(operations)
-      .where(and(eq(operations.action, "autonomous_content_draft"), inArray(operations.status, ["success", "failed"])))
-      .orderBy(desc(operations.id))
-      .limit(500);
-    let script = "";
-    for (const op of draftOps) {
-      const metadata = op.metadata && typeof op.metadata === "object" ? op.metadata as Record<string, unknown> : {};
-      if (Number(metadata.contentId) === draft.id && typeof metadata.script === "string") {
-        script = metadata.script;
-        break;
-      }
-    }
-
-    let webhookResponse: Response;
-    try {
-      webhookResponse = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: draft.topic || draft.title,
-          title: draft.title,
-          script,
-          platform: draft.platform,
-          contentId: draft.id,
-          language: "en",
-          requested_by: "Mira approved draft",
-          timestamp: new Date().toISOString(),
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-    } catch (error) {
-      console.error("Mira approved draft n8n trigger failed:", error);
-      return NextResponse.json({
-        error: "n8n webhook'una ulaşılamadı. Taslak onaylanmadı; bağlantı kontrol edilmeli.",
-      }, { status: 502 });
-    }
-
-    if (!webhookResponse.ok) {
-      return NextResponse.json({
-        error: `n8n webhook'u HTTP ${webhookResponse.status} döndürdü. Taslak onaylanmadı.`,
-      }, { status: 502 });
-    }
-  }
-
   const nextStatus = action === "approve" ? "approved" : "rejected";
   const [row] = await db.update(contentItems)
     .set({ status: nextStatus, updatedAt: new Date() })
@@ -129,7 +77,7 @@ export async function POST(req: Request) {
   await db.insert(operations).values({
     action: action === "approve" ? "content_approved" : "content_rejected",
     summary: action === "approve"
-      ? `Taslak onaylandı ve n8n webhook'u kabul etti: ${row.title}`
+      ? `İçerik taslağı kullanıcı tarafından onaylandı: ${row.title}`
       : `İçerik taslağı reddedildi: ${row.title}`,
     status: "success",
     platform: row.platform,
@@ -138,7 +86,7 @@ export async function POST(req: Request) {
       contentId: row.id,
       contentStatus: nextStatus,
       approvedByUser: true,
-      n8nTriggered: action === "approve",
+      n8nTriggered: false,
       published: false,
     },
   });
@@ -149,7 +97,7 @@ export async function POST(req: Request) {
     n8nTriggered: action === "approve",
     published: false,
     message: action === "approve"
-      ? "Taslak onaylandı; n8n webhook'u isteği kabul etti. Video üretimi ve yayınlama ayrıca doğrulanmalı."
+      ? "Taslak onaylandı. Video üretimi ve yayınlama bu işlem tarafından başlatılmadı; ayrıca gerçekleştirilip doğrulanmalı."
       : "Taslak reddedildi.",
     content: row,
   });

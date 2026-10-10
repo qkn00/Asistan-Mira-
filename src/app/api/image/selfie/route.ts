@@ -29,10 +29,10 @@ export async function POST(req: Request) {
     const token = rawToken as `hf_${string}`;
     const client = await Client.connect(SPACE_ID, { token });
     const result = await client.predict("/infer", {
-      prompt: "Photorealistic casual smartphone selfie portrait of Mira, an original fictional adult woman character, shoulder-length dark brown hair, warm brown eyes, natural makeup, friendly confident expression, simple black casual top, soft natural window light, realistic skin texture, natural facial proportions, head and shoulders, front camera perspective, candid everyday selfie, no text, no watermark.",
+      prompt: "Photorealistic spontaneous mirror selfie of Mira, a fictional adult woman, in her own cozy bedroom at night. Preserve the same established character identity: shoulder-length dark brown hair, warm brown eyes, natural facial features and realistic skin texture. Vertical portrait composition, mirror reflection shows her from head to upper thighs, not a close-up and not just a face portrait. She stands in a relaxed, confident, slightly playful natural pose, wearing a tasteful black satin camisole or a black satin shirt casually open over it, elegant and bold fashion styling without nudity. She holds exactly one smartphone in one hand, clearly visible in the mirror, with anatomically correct fingers and a believable reflection; her other hand rests naturally at her hip. Warm bedside lamp lighting, lived-in bedroom details, candid phone-camera quality, realistic proportions, natural posture, single person, single phone, accurate mirror geometry. No extra phones, no duplicated limbs, no distorted hands, no text, no watermark, no professional studio photoshoot.",
       seed: 0,
       randomize_seed: true,
-      width: 1024,
+      width: 768,
       height: 1024,
       num_inference_steps: 5,
     });

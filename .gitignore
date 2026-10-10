@@ -1,0 +1,12 @@
+# Bağımlılıklar ve build çıktıları (asla commitlenmez)
+node_modules/
+.next/
+out/
+build/
+tsconfig.tsbuildinfo
+
+# Loglar ve yerel dosyalar
+*.log
+.env
+.env*.local
+.DS_Store

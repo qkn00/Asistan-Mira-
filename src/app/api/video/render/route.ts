@@ -82,6 +82,29 @@ function estimateCaptions(text: string, duration: number): Caption[] {
   });
 }
 
+function probeAudioDuration(filePath: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    if (!ffmpegPath) return resolve(null);
+    const child = spawn(ffmpegPath, ["-hide_banner", "-i", filePath], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      stderr = (stderr + chunk).slice(-8000);
+    });
+    child.on("error", () => resolve(null));
+    child.on("close", () => {
+      const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      if (!match) return resolve(null);
+      const seconds = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+      resolve(Number.isFinite(seconds) && seconds > 0 ? seconds : null);
+    });
+  });
+}
+
+function escapeFilterPath(value: string) {
+  return value.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+}
+
 function runFfmpeg(args: string[], timeoutMs = 100_000) {
   return new Promise<void>((resolve, reject) => {
     if (!ffmpegPath) return reject(new Error("FFmpeg çalıştırılabilir dosyası bulunamadı"));
@@ -111,7 +134,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "mira-mp4-renderer",
-    durationSeconds: 20,
+    durationSeconds: "otomatik (durationSeconds parametresi veya ses dosyasından ölçülür)",
     resolution: "1080x1920",
     fps: 30,
     accepts: "3 base64 images, MP3 audio, optional timed captions",
@@ -134,14 +157,6 @@ export async function POST(req: Request) {
       return { bytes, extension: imageExtension(value) };
     });
     const audio = decodeBase64(body.audioBase64, "MP3 ses", 8 * 1024 * 1024);
-    const duration = 20;
-    const captions = safeCaptions(body.captions, duration);
-    const finalCaptions = captions.length
-      ? captions
-      : (typeof body.narrationText === "string" ? estimateCaptions(body.narrationText.slice(0, 5000), duration) : []);
-    if (!finalCaptions.length) {
-      return NextResponse.json({ error: "Altyazı için captions zamanları veya narrationText gerekli" }, { status: 400 });
-    }
 
     workDir = await mkdtemp(path.join(tmpdir(), "mira-mp4-"));
     const imagePaths: string[] = [];
@@ -154,6 +169,19 @@ export async function POST(req: Request) {
     const srtPath = path.join(workDir, "captions.srt");
     const outputPath = path.join(workDir, "mira-short.mp4");
     await writeFile(audioPath, audio);
+
+    // Süre: istemci (TTS kelime zamanlarından) göndermediyse gerçek ses dosyasından ölç.
+    const requested = Number(body.durationSeconds);
+    const probed = await probeAudioDuration(audioPath);
+    const base = Number.isFinite(requested) && requested > 0 ? requested : (probed ?? 20);
+    const duration = Math.max(4, Math.min(90, base + 0.4));
+    const captions = safeCaptions(body.captions, duration);
+    const finalCaptions = captions.length
+      ? captions
+      : (typeof body.narrationText === "string" ? estimateCaptions(body.narrationText.slice(0, 5000), duration) : []);
+    if (!finalCaptions.length) {
+      return NextResponse.json({ error: "Altyazı için captions zamanları veya narrationText gerekli" }, { status: 400 });
+    }
     const srt = finalCaptions.map((caption, index) =>
       `${index + 1}\n${srtTime(caption.start)} --> ${srtTime(caption.end)}\n${caption.text}\n`
     ).join("\n");
@@ -163,7 +191,11 @@ export async function POST(req: Request) {
     const filters = imagePaths.map((_, index) =>
       `[${index}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.0005,1.08)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=30,setsar=1[v${index}]`
     );
-    filters.push(`[v0][v1][v2]concat=n=3:v=1:a=0,subtitles=${srtPath}:force_style='FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=180'[vout]`);
+    // libass'ın FontSize/MarginV değerleri PlayResY=288 birimindedir; 1080x1920'e ölçeklenir.
+    // fontsdir: Railway imajında sistem fontu bulunmayabileceğinden proje içi font klasörünü kullan.
+    const fontsDir = path.join(process.cwd(), "public", "fonts");
+    const subtitleStyle = "FontName=DejaVu Sans,FontSize=17,Bold=1,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=34";
+    filters.push(`[v0][v1][v2]concat=n=3:v=1:a=0,subtitles=${escapeFilterPath(srtPath)}:fontsdir='${escapeFilterPath(fontsDir)}':force_style='${subtitleStyle}'[vout]`);
 
     const args = ["-hide_banner", "-loglevel", "error", "-y"];
     for (const imagePath of imagePaths) {

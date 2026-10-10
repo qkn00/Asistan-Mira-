@@ -5,8 +5,8 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: Request, ctx: RouteContext<"/api/outfits/[id]">) {
-  const { id } = await ctx.params;
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const id = (await params).id;
   const n = Number(id);
   if (!Number.isInteger(n)) return new NextResponse("Not found", { status: 404 });
   const [row] = await db.select().from(customOutfits).where(eq(customOutfits.id, n));
@@ -16,8 +16,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/outfits/[id]">)
   });
 }
 
-export async function DELETE(_req: Request, ctx: RouteContext<"/api/outfits/[id]">) {
-  const { id } = await ctx.params;
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const id = (await params).id;
   const n = Number(id);
   if (!Number.isInteger(n)) return NextResponse.json({ error: "Geçersiz" }, { status: 400 });
   await db.delete(customOutfits).where(eq(customOutfits.id, n));

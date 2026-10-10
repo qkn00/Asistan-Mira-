@@ -113,3 +113,10 @@ export const contentAssets = pgTable("content_assets", {
   meta: jsonb("meta"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// YouTube OAuth tokenları gibi üçüncü taraf entegrasyon gizleri.
+export const integrations = pgTable("integrations", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

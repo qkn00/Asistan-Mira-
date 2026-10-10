@@ -45,3 +45,15 @@ jobs:
             -H "x-mira-key: ${MIRA_AUTOMATION_SECRET}" \
             -H "Content-Type: application/json" \
             -d '{}'
+
+      - name: Analyze accumulated content drafts
+        env:
+          MIRA_BASE_URL: ${{ secrets.MIRA_BASE_URL }}
+          MIRA_AUTOMATION_SECRET: ${{ secrets.MIRA_AUTOMATION_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --max-time 75 \
+            -X POST "${MIRA_BASE_URL%/}/api/automation/analyze-drafts" \
+            -H "x-mira-key: ${MIRA_AUTOMATION_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

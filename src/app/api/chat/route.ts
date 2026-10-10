@@ -149,8 +149,12 @@ export async function POST(req: Request) {
 
     // Private playful mode trigger. This changes Mira's conversational style only;
     // it does not disable safety or authorization checks.
-    const privatePhrase = process.env.MIRA_PRIVATE_PHRASE?.trim().toLocaleLowerCase('tr-TR');
-    const requestedPrivateMode = !!privatePhrase && message.trim().toLocaleLowerCase('tr-TR') === privatePhrase;
+    const normalizePrivatePhrase = (value: string) =>
+      value.trim().normalize('NFKC').toLocaleLowerCase('tr-TR').replace(/[ıi]/g, 'i');
+    // KIRMIZI2206 works even if the Railway phrase variable is not configured.
+    // Normalize dotted/dotless Turkish I so KIRMIZI2206 and KİRMIZI2206 both match.
+    const privatePhrase = process.env.MIRA_PRIVATE_PHRASE?.trim() || 'KIRMIZI2206';
+    const requestedPrivateMode = normalizePrivatePhrase(message) === normalizePrivatePhrase(privatePhrase);
     const storedPrivateMode = cookieHeader.split(';').some((part) => part.trim() === `${PRIVATE_MODE_COOKIE}=1`);
     const privateMode = requestedPrivateMode || storedPrivateMode;
     if (requestedPrivateMode) {

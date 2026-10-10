@@ -11,7 +11,7 @@ permissions:
 jobs:
   run-one-content:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
       - name: Validate required secrets
         env:
@@ -21,6 +21,18 @@ jobs:
           test -n "$MIRA_BASE_URL" || (echo "Missing GitHub Actions secret: MIRA_BASE_URL" && exit 1)
           test -n "$MIRA_AUTOMATION_SECRET" || (echo "Missing GitHub Actions secret: MIRA_AUTOMATION_SECRET" && exit 1)
           python -c 'import os, urllib.parse; u=urllib.parse.urlparse(os.environ["MIRA_BASE_URL"]); print("Mira target host:", u.hostname or "INVALID_URL"); print("Target uses HTTPS:", u.scheme == "https")'
+
+      - name: Research trending topics and fill today's queue
+        env:
+          MIRA_BASE_URL: ${{ secrets.MIRA_BASE_URL }}
+          MIRA_AUTOMATION_SECRET: ${{ secrets.MIRA_AUTOMATION_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --max-time 75 \
+            -X POST "${MIRA_BASE_URL%/}/api/automation/research" \
+            -H "x-mira-key: ${MIRA_AUTOMATION_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "Topic research failed; continuing to process any existing queued content."
 
       - name: Process one queued content draft
         env:

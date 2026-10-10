@@ -1,0 +1,34 @@
+name: Mira Autonomous Content Runner
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-one-content:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate required secrets
+        env:
+          MIRA_BASE_URL: ${{ secrets.MIRA_BASE_URL }}
+          MIRA_AUTOMATION_SECRET: ${{ secrets.MIRA_AUTOMATION_SECRET }}
+        run: |
+          test -n "$MIRA_BASE_URL" || (echo "Missing GitHub Actions secret: MIRA_BASE_URL" && exit 1)
+          test -n "$MIRA_AUTOMATION_SECRET" || (echo "Missing GitHub Actions secret: MIRA_AUTOMATION_SECRET" && exit 1)
+
+      - name: Process one queued content draft
+        env:
+          MIRA_BASE_URL: ${{ secrets.MIRA_BASE_URL }}
+          MIRA_AUTOMATION_SECRET: ${{ secrets.MIRA_AUTOMATION_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --max-time 75 \
+            -X POST "${MIRA_BASE_URL%/}/api/automation/worker" \
+            -H "x-mira-key: ${MIRA_AUTOMATION_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

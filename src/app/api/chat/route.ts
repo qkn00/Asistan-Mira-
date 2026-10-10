@@ -122,6 +122,7 @@ export async function POST(req: Request) {
           '',
           '/yardım — Bu komut listesini gösterir.',
           '/durum — Mira backend ve veritabanı sağlık durumunu kontrol eder.',
+          '/taslak <id> — Kayıtlı içerik taslağının tam metnini gösterir.',
           '/n8n — n8n bağlantı durumunu kontrol eder.',
           '/yt-viral <konu> — YouTube Shorts otomasyonunu başlatır.',
           '/oku <dosya> — GitHub reposundaki dosyayı okur.',
@@ -220,6 +221,79 @@ export async function POST(req: Request) {
           reply: `❌ n8n Agent bağlantısı başarısız: ${reason.slice(0, 300)}`,
           emotion: 'focused',
         });
+      }
+    }
+
+    // /taslak <id>: Read the exact saved draft from the database without changing it.
+    if (command === '/taslak') {
+      const idText = message.trim().split(/\\s+/)[1];
+      const id = Number(idText);
+      if (!idText || !Number.isInteger(id) || id <= 0) {
+        return NextResponse.json({
+          reply: 'Kullanım: /taslak 6 — Görmek istediğin taslak numarasını yaz.',
+          emotion: 'focused',
+        });
+      }
+
+      try {
+        const [content] = await db.select().from(contentItems).where(eq(contentItems.id, id)).limit(1);
+        if (!content) {
+          return NextResponse.json({ reply: `❌ ID ${id} numaralı taslak veritabanında bulunamadı.`, emotion: 'focused' });
+        }
+
+        const draftOperations = await db.select().from(operations)
+          .where(eq(operations.action, 'autonomous_content_draft'))
+          .orderBy(desc(operations.id))
+          .limit(500);
+        const draftOperation = draftOperations.find((operation) => {
+          const metadata = operation.metadata && typeof operation.metadata === 'object'
+            ? operation.metadata as Record<string, unknown>
+            : {};
+          return Number(metadata.contentId) === id && typeof metadata.script === 'string';
+        });
+        const metadata = draftOperation?.metadata && typeof draftOperation.metadata === 'object'
+          ? draftOperation.metadata as Record<string, unknown>
+          : {};
+        const script = typeof metadata.script === 'string' ? metadata.script : '';
+
+        if (!script) {
+          return NextResponse.json({
+            reply: `⚠️ ID ${id} (${content.title}) bulundu; ancak kayıtlı senaryo metni bulunamadı. Taslak değiştirilmedi.`,
+            emotion: 'focused',
+          });
+        }
+
+        const extraFields: Array<[string, string]> = [
+          ['Görsel komutları', 'imagePrompts'],
+          ['Görsel komutu', 'visualPrompt'],
+          ['Seslendirme metni', 'voiceover'],
+          ['Süre', 'duration'],
+          ['Kaynaklar', 'sources'],
+          ['Kaynak bağlantıları', 'sourceUrls'],
+        ];
+        const extras = extraFields
+          .filter(([, key]) => metadata[key] !== undefined && metadata[key] !== null)
+          .map(([label, key]) => `${label}: ${typeof metadata[key] === 'string' ? metadata[key] : JSON.stringify(metadata[key])}`);
+
+        return NextResponse.json({
+          reply: [
+            `📄 Kayıtlı taslak #${content.id}: ${content.title}`,
+            `Durum: ${content.status}`,
+            '',
+            'KAYITLI SENARYO (aynen):',
+            script,
+            ...(extras.length ? ['', ...extras] : []),
+            '',
+            'Bilgi: Bu işlem yalnızca okuma yaptı. Taslak değiştirilmedi ve yayınlanmadı.',
+          ].join('\\n'),
+          emotion: 'focused',
+        });
+      } catch (error) {
+        console.error('Mira /taslak database read failed:', error);
+        return NextResponse.json({
+          reply: '❌ Taslak veritabanından okunamadı. Hata kaydedildi; taslak değiştirilmedi.',
+          emotion: 'focused',
+        }, { status: 500 });
       }
     }
 

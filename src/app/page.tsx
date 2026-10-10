@@ -117,6 +117,7 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<DraftAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState('');
+  const [analysisRunLoading, setAnalysisRunLoading] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(true);
   const { speak, voiceError } = useSpeaker();
 
@@ -132,6 +133,29 @@ export default function Home() {
       setAnalysisError(error instanceof Error ? error.message : 'Analiz raporu alınamadı.');
     } finally {
       setAnalysisLoading(false);
+    }
+  }
+
+  async function runDraftAnalysis() {
+    if (analysisRunLoading) return;
+    setAnalysisRunLoading(true);
+    setAnalysisError('');
+    try {
+      const res = await fetch('/api/automation/analyze-drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'review-panel' }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Analiz başlatılamadı (HTTP ${res.status}).`);
+      if (data?.analyzed !== true || typeof data?.report !== 'string') {
+        throw new Error(typeof data?.message === 'string' ? data.message : 'Analiz edilecek yeni taslak bulunamadı.');
+      }
+      await loadAnalysis();
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Taslak analizi tamamlanamadı.');
+    } finally {
+      setAnalysisRunLoading(false);
     }
   }
 
@@ -420,6 +444,14 @@ export default function Home() {
             >
               <span className="font-semibold text-white">Mira Taslak Analiz Raporu</span>
               <span className="ml-auto text-slate-400" aria-hidden="true">{analysisOpen ? '▴' : '▾'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void runDraftAnalysis()}
+              disabled={analysisRunLoading || analysisLoading}
+              className="shrink-0 rounded-lg border border-violet-400/50 bg-violet-600/20 px-3 py-2 text-xs hover:bg-violet-600/40 disabled:opacity-50"
+            >
+              {analysisRunLoading ? 'Analiz ediliyor…' : 'Analiz Testi'}
             </button>
             <button
               type="button"

@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
     const imageUrl = `data:${contentType};base64,${buffer.toString("base64")}`;
     return NextResponse.json({
-      reply: "📸 Selfie'm hazır! Bu, Mira'nın oluşturulmuş kurgusal karakter portresi.",
+      reply: "Al bakalım bu iyi mi",
       imageUrl,
       seed: Array.isArray(result.data) && typeof result.data[1] === "number" ? result.data[1] : null,
     });

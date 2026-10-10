@@ -186,7 +186,7 @@ async function callOpenRouter(request: ModelRequest): Promise<ModelResult> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY missing");
 
-  const model = process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b";
+  const model = process.env.OPENROUTER_MODEL || "cognitivecomputations/dolphin-mistral-24b-venice-edition:free";
   const res = await fetchWithRetry("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {

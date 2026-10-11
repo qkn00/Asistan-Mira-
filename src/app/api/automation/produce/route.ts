@@ -350,10 +350,10 @@ export async function POST(req: Request) {
         await reportProgress(content.id, [60, 70, 78][i], `Kaydedilmiş ${i + 1}/3 görsel yeniden kullanılıyor`);
         continue;
       }
-      const image = await retryStage(content.id, `${i + 1}. görsel üretimi`, [60, 70, 78][i], async () => {
-        const result = await generateImageWithFallback({ prompt: prompts[i], aspectRatio: "9:16" });
-        return result.image;
+      const generated = await retryStage(content.id, `${i + 1}. görsel üretimi`, [60, 70, 78][i], async () => {
+        return generateImageWithFallback({ prompt: prompts[i], aspectRatio: "9:16" });
       });
+      const image = generated.image;
       images.push(image);
       await db.insert(contentAssets).values({
         contentId: content.id,
@@ -361,7 +361,7 @@ export async function POST(req: Request) {
         mime: image.extension === "png" ? "image/png" : image.extension === "webp" ? "image/webp" : "image/jpeg",
         data: image.bytes.toString("base64"),
         bytes: image.bytes.length,
-        meta: { pipelineStage: "image", imageIndex: i, prompt: prompts[i] },
+        meta: { pipelineStage: "image", imageIndex: i, prompt: prompts[i], provider: generated.provider },
       });
       await reportProgress(content.id, [60, 70, 78][i], `${i + 1}/3 görsel hazırlandı ve kaydedildi`);
     }

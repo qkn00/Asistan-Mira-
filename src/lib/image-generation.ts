@@ -1,4 +1,5 @@
 import type { RenderImage } from "@/lib/render-video";
+import { generateCivitaiImage } from "@/lib/civitai";
 
 type ImageInput = {
   prompt: string;
@@ -15,6 +16,37 @@ function imageFromBase64(value: string, contentType = "image/jpeg"): RenderImage
   }
   const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
   return { bytes, extension };
+}
+
+function findImageUrls(value: unknown, found: string[] = []): string[] {
+  if (typeof value === "string") {
+    if (/^https?:\/\/\S+$/.test(value) && /\.(jpe?g|png|webp)(\?\S*)?$/i.test(value)) found.push(value);
+  } else if (Array.isArray(value)) {
+    for (const item of value) findImageUrls(item, found);
+  } else if (value && typeof value === "object") {
+    for (const item of Object.values(value)) findImageUrls(item, found);
+  }
+  return [...new Set(found)];
+}
+
+async function generateLegacyCivitai(input: ImageInput): Promise<ProviderResult> {
+  const result = await generateCivitaiImage({ prompt: input.prompt, aspectRatio: input.aspectRatio || "9:16", size: "medium" });
+  const urls = findImageUrls(result);
+  if (!urls.length) throw new Error("Civitai görsel URL'si döndürmedi");
+  const response = await fetch(urls[0], {
+    signal: AbortSignal.timeout(40_000),
+    headers: { "User-Agent": "MiraContentPipeline/1.0" },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Civitai görseli HTTP ${response.status}`);
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.startsWith("image/")) throw new Error("Civitai görsel yerine farklı içerik döndürdü");
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error("Civitai görseli boş veya 8 MB üzeri");
+  return {
+    provider: "civitai-legacy",
+    image: { bytes, extension: contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg" },
+  };
 }
 
 async function generateCloudflare(input: ImageInput): Promise<ProviderResult> {
@@ -78,9 +110,26 @@ async function generatePollinations(input: ImageInput): Promise<ProviderResult> 
  */
 export async function generateImageWithFallback(input: ImageInput): Promise<ProviderResult> {
   const failures: string[] = [];
+  const cloudflareConfigured = Boolean(process.env.CLOUDFLARE_ACCOUNT_ID?.trim() && process.env.CLOUDFLARE_API_TOKEN?.trim());
+  const pollinationsConfigured = Boolean(process.env.POLLINATIONS_API_KEY?.trim());
+
+  // Keep the current production path intact until the new provider credentials are configured.
+  // Once either new provider is configured, never fall back to Civitai automatically (Buzz may be chargeable).
+  if (!cloudflareConfigured && !pollinationsConfigured && process.env.CIVITAI_API_KEY?.trim()) {
+    try {
+      const result = await generateLegacyCivitai(input);
+      console.info("[Mira Image] provider success", JSON.stringify({ provider: result.provider, compatibilityMode: true }));
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[Mira Image] legacy Civitai failed", JSON.stringify({ error: message.slice(0, 220) }));
+      throw new Error(`Yeni API anahtarları ayarlı değil; mevcut Civitai yolu da başarısız: ${message.slice(0, 220)}`);
+    }
+  }
+
   const providers = [
-    { name: "Cloudflare", configured: Boolean(process.env.CLOUDFLARE_ACCOUNT_ID?.trim() && process.env.CLOUDFLARE_API_TOKEN?.trim()), run: generateCloudflare },
-    { name: "Pollinations", configured: Boolean(process.env.POLLINATIONS_API_KEY?.trim()), run: generatePollinations },
+    { name: "Cloudflare", configured: cloudflareConfigured, run: generateCloudflare },
+    { name: "Pollinations", configured: pollinationsConfigured, run: generatePollinations },
   ];
 
   for (const provider of providers) {

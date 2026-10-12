@@ -80,7 +80,7 @@ async function discoverPublicSources(query: string): Promise<string[]> {
   if (!response.ok) throw new Error("Otomatik kaynak araması HTTP " + response.status + " döndürdü.");
   const html = (await response.text()).slice(0, 300_000);
   const matches = [...html.matchAll(/class=["\']result__a["\'][^>]*href=["\']([^"\']+)["\']/gi)];
-  const trusted = /(^|\.)((nih\.gov)|(ncbi\.nlm\.nih\.gov)|(medlineplus\.gov)|(cdc\.gov)|(who\.int)|(nhs\.uk)|(mayoclinic\.org)|(clevelandclinic\.org)|(harvard\.edu)|(stanford\.edu)|(nature\.com)|(science\.org)|(scientificamerican\.com)|(britannica\.com)|(health\.harvard\.edu)$/i;
+  const trusted = ["nih.gov", "ncbi.nlm.nih.gov", "medlineplus.gov", "cdc.gov", "who.int", "nhs.uk", "mayoclinic.org", "clevelandclinic.org", "harvard.edu", "stanford.edu", "nature.com", "science.org", "scientificamerican.com", "britannica.com"];
   const urls: string[] = [];
   for (const match of matches) {
     let candidate = match[1].replace(/&amp;/g, "&");
@@ -91,7 +91,7 @@ async function discoverPublicSources(query: string): Promise<string[]> {
       const safe = isPublicHttpsUrl(candidate);
       if (!safe) continue;
       const host = safe.hostname.toLowerCase().replace(/^www\./, "");
-      if (!trusted.test(host)) continue;
+      if (!trusted.some((domain) => host === domain || host.endsWith("." + domain))) continue;
       const normalized = safe.toString();
       if (!urls.includes(normalized)) urls.push(normalized);
       if (urls.length >= 3) break;

@@ -152,6 +152,9 @@ export default function Home() {
   const [manualTopic, setManualTopic] = useState('Konu 1 — TMSF v2: Banka batarsa mevduat güvencesi ve 2026 TMSF limiti. Önce resmi TMSF kaynağını doğrula; kaynak doğrulanmadan sayı/iddia kullanma. Referans: s11_tmsf.');
   const [manualTopicLoading, setManualTopicLoading] = useState(false);
   const [manualTopicResult, setManualTopicResult] = useState('');
+  const [manualScriptId, setManualScriptId] = useState<number | null>(null);
+  const [manualScriptStatus, setManualScriptStatus] = useState<{ contentId: number; status: string; title: string | null; reason: string | null } | null>(null);
+  const [manualScriptEvents, setManualScriptEvents] = useState<VideoProgressEvent[]>([]);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const [queueBusyId, setQueueBusyId] = useState<number | null>(null);
@@ -207,45 +210,41 @@ export default function Home() {
     }
   }
 
-  async function startManualVideo(item: QueueItem) {
-    if (queueBusyId !== null) return;
-    if (!window.confirm(`“${item.title}” konusu için Mira şimdi yalnızca araştırma ve senaryo taslağı hazırlasın mı? Video üretimi, senaryoyu kontrol edip ayrıca onayladıktan sonra başlar.`)) return;
-    setQueueBusyId(item.id);
-    setManualTopicResult(`#${item.id} için araştırma ve senaryo hazırlığı başlatıldı. Video üretimi ve YouTube yüklemesi bu adımda yapılmayacak.`);
+  async function startManualScript(topicOverride?: string, contentId?: number, titleOverride?: string) {
+    const topic = (topicOverride ?? manualTopic).trim();
+    if (!topic || manualTopicLoading) return;
+    setManualTopicLoading(true);
+    setManualTopicResult('Mira görevi aldı; kaynak arıyorum…');
+    setManualScriptStatus(null);
+    setManualScriptEvents([]);
     try {
-      const res = await fetch(`/api/automation/worker?contentId=${item.id}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manualProduce: false }),
+      const res = await fetch('/api/automation/manual-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, title: titleOverride || topic.slice(0, 100), ...(contentId ? { contentId } : {}) }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || `Üretim başlatılamadı (HTTP ${res.status}).`);
-      setQueueItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'processing' } : entry));
-      setManualTopicResult(`#${item.id} senaryo hazırlığına alındı. Taslağı kontrol edip ayrıca “Onayla ve video üret” demeden video üretimi başlamaz.`);
-    } catch (error) {
-      setManualTopicResult(error instanceof Error ? error.message : 'Üretim başlatılamadı.');
-    } finally {
-      setQueueBusyId(null);
+      if (!res.ok) throw new Error(data?.error || `Senaryo görevi başlatılamadı (HTTP ${res.status}).`);
+      const id = Number(data?.contentId);
+      if (!Number.isInteger(id) || id <= 0) throw new Error('Mira görev kimliği döndürmedi.');
+      setManualScriptId(id);
+      setManualScriptStatus({ contentId: id, status: 'processing', title: String(data?.title || topic), reason: null });
+      setManualTopicResult(`#${id} — Mira araştırmaya başladı. İşlem adımları aşağıda canlı gösteriliyor.`);
+      if (!contentId) setManualTopic('');
       void loadManualQueue();
+    } catch (error) {
+      setManualTopicResult(error instanceof Error ? error.message : 'Senaryo görevi başlatılamadı.');
+    } finally {
+      setManualTopicLoading(false);
     }
   }
 
-  async function startManualProduction(item: QueueItem) {
-    if (queueBusyId !== null) return;
-    if (!window.confirm(`“${item.title}” konusu için Mira şimdi senaryo ve video üretimini başlatsın mı? Bu işlem planlı saat ayarlarını değiştirmez ve YouTube'a otomatik yükleme yapmaz.`)) return;
+  async function startManualVideo(item: QueueItem) {
+    if (queueBusyId !== null || item.status === 'processing') return;
     setQueueBusyId(item.id);
-    setManualTopicResult(`#${item.id} için manuel video üretimi başlatılıyor. Planlı saat ayarları değiştirilmiyor; YouTube'a otomatik yükleme yapılmayacak.`);
     try {
-      const res = await fetch(`/api/automation/worker?contentId=${item.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ manualProduce: true }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || `Video üretimi başlatılamadı (HTTP ${res.status}).`);
+      await startManualScript(item.topic || item.title, item.id, item.title);
       setQueueItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'processing' } : entry));
-      setManualTopicResult(`#${item.id} için manuel üretim başlatıldı. Bu tıklama planlı saatleri değiştirmez. Üretimin tamamlandığı ve private YouTube yüklemesi ayrıca doğrulanmalı.`);
-    } catch (error) {
-      setManualTopicResult(error instanceof Error ? error.message : 'Video üretimi başlatılamadı.');
     } finally {
       setQueueBusyId(null);
       void loadManualQueue();
@@ -253,28 +252,7 @@ export default function Home() {
   }
 
   async function addManualTopic() {
-    const topic = manualTopic.trim();
-    if (!topic || manualTopicLoading) return;
-    setManualTopicLoading(true);
-    setManualTopicResult('');
-    try {
-      const res = await fetch('/api/automation/queue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: topic.slice(0, 80), topic, platform: 'youtube' }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || `Konu eklenemedi (HTTP ${res.status}).`);
-      setManualTopicResult('✅ Konu kuyruğa eklendi. Otomatik başlamaz; planlı saatte veya “Bu videoyu şimdi oluştur” düğmesiyle başlatılır.');
-      setManualTopic('');
-      void loadManualQueue();
-      setTimeout(() => setManualTopicResult(''), 12000);
-    } catch (error) {
-      setManualTopicResult(error instanceof Error ? error.message.slice(0, 80) : 'Konu eklenemedi.');
-      setTimeout(() => setManualTopicResult(''), 12000);
-    } finally {
-      setManualTopicLoading(false);
-    }
+    await startManualScript();
   }
 
   async function loadDrafts() {
@@ -356,7 +334,10 @@ export default function Home() {
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || `İşlem başarısız (HTTP ${res.status}).`);
       if (action === 'generate_script') {
-        setReviewNotice(data?.message || 'Senaryo oluşturuldu; taslak kartı güncelleniyor.');
+        setReviewNotice(data?.message || 'Mira senaryo görevini başlattı; kaynak ve üretim adımları izleniyor.');
+        setManualScriptId(id);
+        setManualScriptStatus({ contentId: id, status: 'processing', title: drafts.find((draft) => draft.id === id)?.title || `İçerik #${id}`, reason: null });
+        setManualTopicResult(`#${id} — Mira kaynak araştırmasına başladı.`);
         void loadDrafts();
         return;
       }
@@ -494,6 +475,49 @@ export default function Home() {
       void loadManualQueue();
     }
   }, [entered]);
+
+  useEffect(() => {
+    if (!entered || manualScriptId === null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/automation/manual-script?contentId=${manualScriptId}`, { cache: 'no-store' });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || 'Canlı görev günlüğü alınamadı.');
+        if (cancelled) return;
+        const events = Array.isArray(data?.events) ? data.events as VideoProgressEvent[] : [];
+        setManualScriptEvents(events);
+        const status = typeof data?.status === 'string' ? data.status : 'processing';
+        setManualScriptStatus({ contentId: manualScriptId, status, title: typeof data?.title === 'string' ? data.title : null, reason: typeof data?.reason === 'string' ? data.reason : null });
+        const last = events[events.length - 1];
+        if (status === 'ready') {
+          setManualTopicResult(`#${manualScriptId} — ✅ HAZIR. Senaryo kaynak kontrolünden geçti; videoyu üret butonunu kullanabilirsin.`);
+          void loadDrafts();
+          void loadManualQueue();
+          return;
+        }
+        if (status === 'blocked') {
+          setManualTopicResult(`#${manualScriptId} — ❌ Doğruluğu ispatlanamadı, video oluşturulamıyor. ${data?.reason || last?.stage || ''}`);
+          void loadManualQueue();
+          return;
+        }
+        if (status === 'failed') {
+          setManualTopicResult(`#${manualScriptId} — Görev tamamlanamadı. ${last?.stage || ''}`);
+          void loadManualQueue();
+          return;
+        }
+        timer = setTimeout(poll, 1400);
+      } catch (error) {
+        if (!cancelled) {
+          setManualTopicResult(error instanceof Error ? error.message : 'Canlı görev günlüğü alınamadı.');
+          timer = setTimeout(poll, 3000);
+        }
+      }
+    };
+    void poll();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [entered, manualScriptId]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -765,14 +789,29 @@ export default function Home() {
               disabled={manualTopicLoading || !manualTopic.trim()}
               className="shrink-0 rounded-lg border border-sky-400/50 bg-sky-600/20 px-3 py-2 text-xs hover:bg-sky-600/40 disabled:opacity-50"
             >
-              {manualTopicLoading ? 'Ekleniyor…' : '➕ Konuyu kuyruğa al'}
+              {manualTopicLoading ? 'Mira çalışıyor…' : '✍ Senaryoyu üret'}
             </button>
           </div>
           {manualTopicResult && <p className="mt-1 text-xs text-sky-300">{manualTopicResult}</p>}
+          {manualScriptEvents.length > 0 && manualScriptStatus?.status !== 'ready' && manualScriptStatus?.status !== 'blocked' && manualScriptStatus?.status !== 'failed' && (
+            <div className="mt-2 space-y-1 rounded-md border border-slate-700/70 bg-slate-950/60 px-2 py-2" aria-live="polite">
+              {manualScriptEvents.slice(-6).map((event) => (
+                <p key={event.id} className="text-[10px] leading-4 text-slate-400">{event.stage}</p>
+              ))}
+            </div>
+          )}
+          {manualScriptStatus?.status === 'ready' && manualScriptId !== null && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold text-emerald-300">✅ HAZIR</span>
+              <button type="button" onClick={() => void reviewDraft(manualScriptId, 'approve_video')} disabled={reviewBusyId !== null} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold hover:bg-emerald-600 disabled:opacity-50">
+                {reviewBusyId === manualScriptId ? 'Video hazırlanıyor…' : '▶ Videoyu üret'}
+              </button>
+            </div>
+          )}
           <div className="mt-3 rounded-lg border border-sky-500/20 bg-slate-900/70 p-3">
             <div className="mb-2 flex items-center justify-between gap-2"><p className="text-sm font-semibold text-white">Manuel konu kuyruğu</p><button type="button" onClick={() => void loadManualQueue()} disabled={queueLoading} className="rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-700 disabled:opacity-50">{queueLoading ? 'Yükleniyor…' : 'Kuyruğu yenile'}</button></div>
-            <p className="mb-3 text-xs text-slate-400">Konular kendiliğinden başlamaz. “Senaryo hazırla” araştırma ve taslak oluşturur; “Bu videoyu şimdi üret” seçeneği manuel üretimi başlatır. Buton planlı saat ayarlarını değiştirmez. YouTube'a otomatik yükleme yapılmaz; kaynaklar doğrulanmadan kesin bilgi kullanılmaz.</p>
-            {queueItems.length === 0 ? <p className="text-xs text-slate-500">Bekleyen manuel konu yok.</p> : <div className="space-y-2">{queueItems.map((item) => <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-slate-700 bg-slate-950/70 p-3 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="break-words text-sm font-medium text-white">{item.title}</p><p className="mt-1 text-xs text-slate-400">#{item.id} · {item.status === 'queued' ? 'Sırada' : item.status === 'processing' ? 'İşleniyor' : 'Hata / yeniden denenebilir'}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void startManualVideo(item)} disabled={queueBusyId !== null || item.status !== 'queued'} className="rounded-lg border border-slate-500 px-3 py-2 text-xs font-medium hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40">{queueBusyId === item.id ? 'Başlatılıyor…' : '✍ Senaryo hazırla'}</button><button type="button" onClick={() => void startManualProduction(item)} disabled={queueBusyId !== null || item.status !== 'queued'} className="rounded-lg border border-emerald-400/50 bg-emerald-600/20 px-3 py-2 text-xs font-semibold hover:bg-emerald-600/40 disabled:cursor-not-allowed disabled:opacity-40">{queueBusyId === item.id ? 'Başlatılıyor…' : '▶ Bu videoyu şimdi üret'}</button></div></div>)}</div>}
+            <p className="mb-3 text-xs text-slate-400">Bekleyen eski kayıtlar burada korunur. “Senaryo üret” Mira’nın doğrudan araştırma ve senaryo akışını başlatır; doğrulama geçmeden video üretilemez.</p>
+            {queueItems.length === 0 ? <p className="text-xs text-slate-500">Bekleyen manuel konu yok.</p> : <div className="space-y-2">{queueItems.map((item) => <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-slate-700 bg-slate-950/70 p-3 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="break-words text-sm font-medium text-white">{item.title}</p><p className="mt-1 text-xs text-slate-400">#{item.id} · {item.status === 'queued' ? 'Sırada' : item.status === 'processing' ? 'İşleniyor' : 'Hata / yeniden denenebilir'}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void startManualVideo(item)} disabled={queueBusyId !== null || item.status !== 'queued'} className="rounded-lg border border-slate-500 px-3 py-2 text-xs font-medium hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40">{queueBusyId === item.id ? 'Başlatılıyor…' : '✍ Senaryo hazırla'}</button></div></div>)}</div>}
           </div>
           {analysisOpen && (
             <div className="mt-3 space-y-2">
@@ -826,7 +865,7 @@ export default function Home() {
               aria-expanded={draftPanelOpen}
               className="flex min-w-0 flex-1 items-center gap-2 text-left"
             >
-              <span className="font-semibold text-white">İçerik Deposu · İşçi Taslakları</span>
+              <span className="font-semibold text-white">Senaryo Taslakları</span>
               <span className="shrink-0 rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-300">
                 {drafts.length} içerik
               </span>
@@ -844,7 +883,7 @@ export default function Home() {
           </div>
           {draftPanelOpen && (
             <div className="mt-3 space-y-3">
-              <p className="text-xs text-slate-400">İşçilerin topladığı içerikler burada birikir. Senaryosu olmayanı önce <b className="text-slate-300">Senaryoyu oluştur</b> ile hazırlat; <b className="text-slate-300">Onayla ve video üret</b> üretimi heaslak yok. Yeni taslaklar burada görünecek.</p>
+              <p className="text-xs text-slate-400">Senaryolar burada saklanır. Kaynak doğrulaması geçmeyen içerik video üretim onayına alınmaz. Yeni senaryo görevleri Mira tarafından doğrudan yürütülür.</p>
               {drafts.map((draft) => (
                 <article key={draft.id} className="rounded-lg border border-slate-700 bg-slate-900 p-3 space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">

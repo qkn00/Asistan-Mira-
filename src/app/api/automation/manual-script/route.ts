@@ -1,6 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { createHash } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 import { db } from "@/db";
 import { contentItems, operations, tasks } from "@/db/schema";
 import { generateWithFallback } from "@/lib/model-manager";
@@ -254,7 +254,7 @@ async function runScriptJob(contentId: number, title: string, topic: string) {
       },
     });
     await db.update(contentItems).set({ title: scriptTitle, status: "draft", updatedAt: new Date() }).where(eq(contentItems.id, contentId));
-    await db.update(tasks).set({ status: "done", updatedAt: new Date() }).where(eq(tasks.status, "pending"));
+    await db.update(tasks).set({ status: "done", updatedAt: new Date() }).where(like(tasks.notes, `%"contentId":${contentId}%`));
     await logProgress(contentId, 100, "✅ HAZIR — Senaryo kaynak kontrolünden geçti. Videoyu üret seçeneği bekleniyor.", "success");
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

@@ -35,13 +35,13 @@ async function imagePromptsWithLlm(topic: string, script: string, narration: str
   const result = await generateWithFallback({
     system: [
       "You are an image prompt writer for a Turkish YouTube Shorts channel.",
-      "The viewer sees 3 still images while the narration plays; each image MUST illustrate what is being said at that beat.",
-      "Write exactly 3 visual scene prompts following the narration's progression (beginning, middle, end).",
+      "The viewer sees exactly 2 still images while the narration plays; each image MUST illustrate what is being said at that beat.",
+      "Write exactly 2 visual scene prompts: opening/hook and the main fact/result, with the scene transition near the midpoint.",
       "Each prompt must depict a CONCRETE, physically representable subject directly tied to the narration: a person doing something, a recognizable object, a real place. If the narration mentions specifics (bank, money, vault, building, machine...), the scene must show those.",
       "FORBIDDEN: purely abstract/atmospheric scenes made only of light beams, gradients, glowing shapes, empty fog, or generic tech ambience.",
       "Each prompt: one cinematic vertical 9:16 scene, dark tones, neon green (#D4FF3F) accent, no text or lettering in the image.",
       "Prompts must be in English, 25-60 words each, safe for work, photorealistic or cinematic illustration.",
-      'Return ONLY valid JSON: {"prompts": ["...", "...", "..."]}',
+      'Return ONLY valid JSON: {"prompts": ["...", "..."]}',
     ].join("\n"),
     history: [],
     message: `Topic: ${topic}\nNarration (Turkish - images must match its beats):\n${narration}\n\nScript excerpt:\n${script.slice(0, 900)}`,
@@ -52,8 +52,8 @@ async function imagePromptsWithLlm(topic: string, script: string, narration: str
   const prompts = parsed.prompts
     .map((p) => (typeof p === "string" ? p.trim() : ""))
     .filter(Boolean)
-    .slice(0, 3);
-  if (prompts.length !== 3) throw new Error(`3 görsel promptu beklenirken ${prompts.length} geldi`);
+    .slice(0, 2);
+  if (prompts.length !== 2) throw new Error(`2 görsel promptu beklenirken ${prompts.length} geldi`);
   return prompts;
 }
 
@@ -274,7 +274,7 @@ export async function GET() {
     ok: true,
     service: "mira-content-producer",
     usage: {
-      real: 'POST {"contentId": <id>} — onaylı taslak → TTS → 3 görsel → MP4 → content_assets',
+      real: 'POST {"contentId": <id>} — onaylı taslak → TTS → 2 görsel → MP4 → content_assets',
       mock: 'POST {"mock": true, "narrationText": "...", "imageBase64": [...3 görsel...]} — DB/Civitai/LLM olmadan uçtan uca test',
     },
   });
@@ -294,7 +294,7 @@ export async function POST(req: Request) {
       if (!rawNarrationText || imageBase64.length !== 3) {
         return NextResponse.json({ error: "mock modunda narrationText ve 3 imageBase64 gerekli" }, { status: 400 });
       }
-      const narrationText = capNarrationForDuration(rawNarrationText).text;
+      const narrationText = capNarrationForDuration(rawNarrationText, { targetWords: 72, maxWords: 82 }).text;
       const t0 = Date.now();
       const narration = await generateNarration(narrationText);
       const tNarration = Date.now() - t0;
@@ -416,7 +416,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, produced: false, permanentlyBlocked: true, message: "Bu konu kalıcı olarak silindi; video üretimi engellendi." }, { status: 410 });
     }
     const rawNarration = extractNarration(script, `${content.title}. ${topic}`);
-    const narrationCap = capNarrationForDuration(rawNarration);
+    const narrationCap = capNarrationForDuration(rawNarration, { targetWords: 72, maxWords: 82 });
     let narrationText = narrationCap.text;
     const sections = parseDraftScript(script);
 
@@ -470,13 +470,13 @@ export async function POST(req: Request) {
 
     // Anlatı çok kısaysa (<32 kelime ≈ <15sn) üretim anında bir kez uzat:
     // modelin 40-48 kelime şartını tutmadığı eski taslaklar için de çalışır.
-    if (narrationCap.words > 0 && narrationCap.words < 32) {
+    if (narrationCap.words > 0 && narrationCap.words < 60) {
       try {
         const expanded = await retryStage(content.id, "Kısa anlatı uzatma", 12, async () => {
           const r = await generateWithFallback({
             system: [
               "Türkçe bir YouTube Shorts anlatı yazıcısısın.",
-              "Verilen kısa anlatıyı aynı konuda tutarak 44-56 kelimeye uzat: ilk cümledeki kancayı koru, konuyla ilgili 1-2 somut ve doğrulanabilir bilgi ekle, otoriter ve doğal bir üslupla bitir.",
+              "Verilen kısa anlatıyı aynı konuda tutarak 68-80 kelimeye uzat: ilk cümledeki kancayı koru, konuya bağlı doğrulanabilir destek ekle ve sabit CTA ile bitir.",
               "Sadece anlatı metnini döndür; başlık, süre bilgisi, köşeli açıklama, alıntı, yıldız işareti EKLEME.",
             ].join("\n"),
             history: [],
@@ -484,7 +484,7 @@ export async function POST(req: Request) {
           });
           const text = r.content.replace(/\s+/g, " ").trim();
           const words = text.split(/\s+/).filter(Boolean).length;
-          if (words < 30 || words > 90) throw new Error(`Uzatılan anlatı makul uzunlukta değil (${words} kelime)`);
+          if (words < 60 || words > 90) throw new Error(`Uzatılan anlatı makul uzunlukta değil (${words} kelime)`);
           return text;
         });
         const recap = capNarrationForDuration(expanded);
@@ -507,17 +507,16 @@ export async function POST(req: Request) {
 
     // 3) Görsel istemlerini kaydet; yeniden denemede aynı istemler kullanılır.
     let prompts = checkpoints.prompts;
-    if (prompts.length !== 3) {
+    if (prompts.length !== 2) {
       try {
         prompts = await retryStage(content.id, "Görsel sahne planlama", 25, () => imagePromptsWithLlm(topic, script, narrationText));
         stages.prompts = { source: "llm" };
       } catch (error) {
         const fallback = (sections["GÖRSEL TASARIMI"] || topic)
-          .split(/\n|\.|;/).map((s) => s.trim()).filter((s) => s.length > 12).slice(0, 3);
+          .split(/\n|\.|;/).map((s) => s.trim()).filter((s) => s.length > 12).slice(0, 2);
         prompts = [
-          `Cinematic vertical scene about ${topic}, dark tones, neon green accent, no text`,
-          fallback[0] || `Close-up cinematic detail related to ${topic}, moody lighting, no text`,
-          fallback[1] || `Wide cinematic establishing shot related to ${topic}, dark tones, no text`,
+          fallback[0] || `Cinematic vertical opening scene about ${topic}, dark tones, neon green accent, no text`,
+          fallback[1] || `Cinematic vertical scene illustrating the main fact about ${topic}, dark tones, no text`,
         ];
         stages.prompts = { source: "fallback", llmError: String(error).slice(0, 200) };
       }
@@ -538,8 +537,8 @@ export async function POST(req: Request) {
       const meta = checkpoints.narrationAsset.meta && typeof checkpoints.narrationAsset.meta === "object"
         ? checkpoints.narrationAsset.meta as Record<string, unknown> : {};
       const savedSeconds = typeof meta.durationSeconds === "number" ? meta.durationSeconds : null;
-      if (savedSeconds !== null && savedSeconds > 34) {
-        checkpointStaleReason = `kaydedilmiş ses ${savedSeconds}sn (30sn kuralından önce üretilmiş)`;
+      if (savedSeconds !== null && savedSeconds > 41) {
+        checkpointStaleReason = `kaydedilmiş ses ${savedSeconds}sn (40sn üst sınırını aşıyor)`;
       } else if (meta.ctaVersion !== 1) {
         checkpointStaleReason = "CTA'sız eski ses (marka motoru eşleşmesi için yeniden üretilecek)";
       } else {
@@ -582,14 +581,14 @@ export async function POST(req: Request) {
 
     // 5) Görselleri tek tek üretip hemen kalıcı kaydet; hata olursa hazır görseller kaybolmaz.
     const images: RenderImage[] = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       const existing = checkpoints.imageAssets.find((asset) => Number((asset.meta as Record<string, unknown>).imageIndex) === i);
       if (existing) {
         images.push({ bytes: Buffer.from(existing.data, "base64"), extension: existing.mime.includes("png") ? "png" : existing.mime.includes("webp") ? "webp" : "jpg" });
-        await reportProgress(content.id, [60, 70, 78][i], `Kaydedilmiş ${i + 1}/3 görsel yeniden kullanılıyor`);
+        await reportProgress(content.id, [60, 78][i], `Kaydedilmiş ${i + 1}/2 görsel yeniden kullanılıyor`);
         continue;
       }
-      const image = await retryStage(content.id, `${i + 1}. görsel üretimi`, [60, 70, 78][i], async () => {
+      const image = await retryStage(content.id, `${i + 1}. görsel üretimi`, [60, 78][i], async () => {
         return generateImage(prompts[i]);
       });
       images.push(image);
@@ -604,7 +603,7 @@ export async function POST(req: Request) {
         bytes: image.bytes.length,
         meta: { pipelineStage: "image", imageIndex: i, prompt: prompts[i], provider: image.provider },
       });
-      await reportProgress(content.id, [60, 70, 78][i], `${i + 1}/3 görsel hazırlandı ve kaydedildi (${image.provider})`);
+      await reportProgress(content.id, [60, 78][i], `${i + 1}/2 görsel hazırlandı ve kaydedildi (${image.provider})`);
     }
     stages.images = { count: images.length, bytes: images.map((i) => i.bytes.length), resumed: checkpoints.imageAssets.length > 0 };
 
@@ -635,7 +634,7 @@ export async function POST(req: Request) {
         }));
         video = motor.video;
         durationSeconds = motor.durationSeconds;
-        profile = `motor-${process.env.MIRA_MOTOR_W || "720"}x${process.env.MIRA_MOTOR_H || "1280"}`;
+        profile = `motor-${process.env.MIRA_MOTOR_W || "1080"}x${process.env.MIRA_MOTOR_H || "1920"}@${process.env.MIRA_MOTOR_FPS || "30"}fps`;
         stages.render = { engine: "python-motor", durationSeconds, bytes: video.length, renderMs: motor.renderMs, qc: motor.qcOutput.slice(-220), profile };
       } catch (motorError) {
         const msg = motorError instanceof Error ? motorError.message : String(motorError);

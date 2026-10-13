@@ -45,7 +45,7 @@ FPS = int(os.environ.get("MIRA_MOTOR_FPS", "24"))
 S_SCALE = W / 1080.0
 def S_(v):
     return max(1, int(round(v * S_SCALE)))
-MX = 72
+MX = S_(72)
 CW = W - 2 * MX
 LEAD = 0.40
 GREEN = (212, 255, 63, 255)

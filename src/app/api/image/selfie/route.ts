@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       reply: "Al bakalım bu iyi mi",
       imageUrl,
-      seed: Array.isArray(result.data) && typeof result.data[1] === "number" ? result.data[1] : null,
+      seed: null,
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

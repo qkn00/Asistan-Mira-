@@ -393,7 +393,7 @@ export async function POST(req: Request) {
           ] : [])
         ].join("\n"),
         history: [],
-        message: `Kullanıcının verdiği tam konu girdisi (varsa tüm alanları ve ayrıntıları koru):\n${topic}\n\nKayıt başlığı: ${claimed.title}\nTalimat: Kullanıcının açıkça belirttiği süre, kanca, gelişme, CTA, kaynak adayları, başlık, açıklama ve etiketlere uy. Yalnızca kısa konu girdisiyse varsayılan Bilgi Dozu Shorts formatını kullan. Tam 3 ayrı görsel için zaman kodlu promptlar ver. Kaynak adaylarını gerçekten kontrol et; erişilemeyen veya iddiayı desteklemeyen kaynağı doğrulanmış gösterme. Tüm zorunlu başlıkları doldur. ${signalDirective ? `\nHaftalık kanal sinyal direktifi: ${JSON.stringify(signalDirective)}` : ""}`,
+        message: `Kullanıcının verdiği tam konu girdisi (varsa tüm alanları ve ayrıntıları koru):\n${topic}\n\nKayıt başlığı: ${claimed.title}\nTalimat: Kullanıcının açıkça belirttiği süre, kanca, gelişme, CTA, kaynak adayları, başlık, açıklama ve etiketlere uy. Yalnızca kısa konu girdisiyse varsayılan Bilgi Dozu Shorts formatını kullan. Tam 2 ayrı görsel için zaman kodlu promptlar ver. Kaynak adaylarını gerçekten kontrol et; erişilemeyen veya iddiayı desteklemeyen kaynağı doğrulanmış gösterme. Tüm zorunlu başlıkları doldur. ${signalDirective ? `\nHaftalık kanal sinyal direktifi: ${JSON.stringify(signalDirective)}` : ""}`,
       });
 
       const generated = result.content.trim();
@@ -404,11 +404,8 @@ export async function POST(req: Request) {
       }
       const requiredHeadings = ["KANCA", "SESLENDİRME", "EKRAN METNİ", "GÖRSEL TASARIMI", "SES VE MÜZİK", "KAYNAK", "AÇIKLAMA", "ETİKETLER", "TASARIM"];
       const findMissingHeadings = (text: string) => requiredHeadings.filter((heading) => {
-        const escaped = heading.replace(/[.*+?^\$\{\}()|[\]\\]/g, "\\const findMissingHeadings = (text: string) => {
-        const normalized = text.toLocaleUpperCase("tr-TR");
-        return requiredHeadings.filter((heading) => !normalized.includes(heading));
-      };");
-        const exactHeading = new RegExp("^\\s*(?:#{1,4}\\s*)?(?:\\*\\*)?" + escaped + "(?:\\*\\*)?\\s*:?\\s*$", "im");
+        // Başlık tam bir satır olmalı; GÖRSEL TASARIMI, TASARIM yerine geçemez.
+        const exactHeading = new RegExp("^\\s*(?:#{1,4}\\s*)?(?:\\*\\*)?" + heading + "(?:\\*\\*)?\\s*:?\\s*$", "im");
         return !exactHeading.test(text);
       });
       let missingHeadings = findMissingHeadings(generated);

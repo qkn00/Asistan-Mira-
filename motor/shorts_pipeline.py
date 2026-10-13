@@ -39,9 +39,9 @@ if not os.path.isfile(_CONF_PATH):
 with open(_CONF_PATH, encoding="utf-8") as _conf_file:
     CONF = json.load(_conf_file)
 # MIRA: ölçeklenebilir çözünürlük (varsayılan 720x1280@24 = referansın 2/3 ölçeği)
-W = int(os.environ.get("MIRA_MOTOR_W", "720"))
-H = int(os.environ.get("MIRA_MOTOR_H", "1280"))
-FPS = int(os.environ.get("MIRA_MOTOR_FPS", "24"))
+W = int(os.environ.get("MIRA_MOTOR_W", "1080"))
+H = int(os.environ.get("MIRA_MOTOR_H", "1920"))
+FPS = int(os.environ.get("MIRA_MOTOR_FPS", "30"))
 S_SCALE = W / 1080.0
 def S_(v):
     return max(1, int(round(v * S_SCALE)))

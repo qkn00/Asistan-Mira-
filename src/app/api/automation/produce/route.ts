@@ -229,6 +229,8 @@ async function retryStage<T>(
   throw lastError instanceof Error ? lastError : new Error(detail);
 }
 
+const TEMPLATE_VERSION = "bilgi-dozu-v1";
+
 async function loadCheckpoints(contentId: number) {
   const [checkpointOps, savedAssets] = await Promise.all([
     db.select().from(operations)
@@ -240,7 +242,7 @@ async function loadCheckpoints(contentId: number) {
   ]);
   const checkpoint = checkpointOps.find((op) => {
     const meta = op.metadata && typeof op.metadata === "object" ? op.metadata as Record<string, unknown> : {};
-    return Number(meta.contentId) === contentId && Array.isArray(meta.prompts);
+    return Number(meta.contentId) === contentId && meta.templateVersion === TEMPLATE_VERSION && Array.isArray(meta.prompts);
   });
   const checkpointMeta = checkpoint?.metadata && typeof checkpoint.metadata === "object"
     ? checkpoint.metadata as Record<string, unknown> : {};
@@ -252,7 +254,7 @@ async function loadCheckpoints(contentId: number) {
   });
   const imageAssets = savedAssets.filter((asset) => {
     const meta = asset.meta && typeof asset.meta === "object" ? asset.meta as Record<string, unknown> : {};
-    return asset.kind === "image" && meta.pipelineStage === "image";
+    return asset.kind === "image" && meta.pipelineStage === "image" && meta.templateVersion === TEMPLATE_VERSION;
   }).filter((asset) => {
     const meta = asset.meta as Record<string, unknown>;
     return Number.isInteger(Number(meta.imageIndex));
@@ -265,7 +267,7 @@ async function savePromptCheckpoint(contentId: number, prompts: string[]) {
     action: "content_produce_checkpoint",
     summary: "Görsel istemleri kaydedildi",
     status: "success",
-    metadata: { contentId, prompts, savedAt: new Date().toISOString() },
+    metadata: { contentId, prompts, templateVersion: TEMPLATE_VERSION, savedAt: new Date().toISOString() },
   });
 }
 
@@ -512,13 +514,10 @@ export async function POST(req: Request) {
         prompts = await retryStage(content.id, "Görsel sahne planlama", 25, () => imagePromptsWithLlm(topic, script, narrationText));
         stages.prompts = { source: "llm" };
       } catch (error) {
-        const fallback = (sections["GÖRSEL TASARIMI"] || topic)
-          .split(/\n|\.|;/).map((s) => s.trim()).filter((s) => s.length > 12).slice(0, 2);
-        prompts = [
-          fallback[0] || `Cinematic vertical opening scene about ${topic}, dark tones, neon green accent, no text`,
-          fallback[1] || `Cinematic vertical scene illustrating the main fact about ${topic}, dark tones, no text`,
-        ];
-        stages.prompts = { source: "fallback", llmError: String(error).slice(0, 200) };
+        const detail = error instanceof Error ? error.message : String(error);
+        stages.prompts = { source: "failed-closed", error: detail.slice(0, 240), templateVersion: TEMPLATE_VERSION };
+        await reportProgress(content.id, 25, `Görsel sahne planı üretilemedi: ${detail.slice(0, 180)}. Alakasız yedek görsel istemleri kullanılmadı.`, "waiting");
+        throw new Error(`Sabit şablon için konuya uygun 2 görsel istemi üretilemedi; alakasız yedek kullanılmadı. ${detail.slice(0, 240)}`);
       }
       await savePromptCheckpoint(content.id, prompts);
     } else {
@@ -601,7 +600,7 @@ export async function POST(req: Request) {
         mime: image.extension === "png" ? "image/png" : image.extension === "webp" ? "image/webp" : "image/jpeg",
         data: image.bytes.toString("base64"),
         bytes: image.bytes.length,
-        meta: { pipelineStage: "image", imageIndex: i, prompt: prompts[i], provider: image.provider },
+        meta: { pipelineStage: "image", imageIndex: i, prompt: prompts[i], provider: image.provider, templateVersion: TEMPLATE_VERSION },
       });
       await reportProgress(content.id, [60, 78][i], `${i + 1}/2 görsel hazırlandı ve kaydedildi (${image.provider})`);
     }

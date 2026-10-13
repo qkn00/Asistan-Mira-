@@ -275,7 +275,7 @@ export async function GET() {
     service: "mira-content-producer",
     usage: {
       real: 'POST {"contentId": <id>} — onaylı taslak → TTS → 2 görsel → MP4 → content_assets',
-      mock: 'POST {"mock": true, "narrationText": "...", "imageBase64": [...3 görsel...]} — DB/Civitai/LLM olmadan uçtan uca test',
+      mock: 'POST {"mock": true, "narrationText": "...", "imageBase64": [...2 görsel...]} — DB/Civitai/LLM olmadan uçtan uca test',
     },
   });
 }
@@ -291,8 +291,8 @@ export async function POST(req: Request) {
     try {
       const rawNarrationText = typeof body.narrationText === "string" ? body.narrationText.trim() : "";
       const imageBase64 = Array.isArray(body.imageBase64) ? body.imageBase64 : [];
-      if (!rawNarrationText || imageBase64.length !== 3) {
-        return NextResponse.json({ error: "mock modunda narrationText ve 3 imageBase64 gerekli" }, { status: 400 });
+      if (!rawNarrationText || imageBase64.length !== 2) {
+        return NextResponse.json({ error: "mock modunda narrationText ve tam 2 imageBase64 gerekli" }, { status: 400 });
       }
       const narrationText = capNarrationForDuration(rawNarrationText, { targetWords: 72, maxWords: 82 }).text;
       const t0 = Date.now();
@@ -529,7 +529,7 @@ export async function POST(req: Request) {
     await reportProgress(content.id, 30, "Görsel sahneler planlandı");
 
     // 4) Seslendirme: daha önce kaydedildiyse tekrar üretme — AMA checkpoint sessizse
-    // (veya 30sn kuralından önce üretilmiş uzun sürümse) bayat say, tazele.
+    // (veya 40sn kuralından önce üretilmiş uzun sürümse) bayat say, tazele.
     let narration: Awaited<ReturnType<typeof generateNarration>> | null = null;
     let narrationMeanDb: number | null = null;
     let checkpointStaleReason = "";
@@ -634,7 +634,7 @@ export async function POST(req: Request) {
         }));
         video = motor.video;
         durationSeconds = motor.durationSeconds;
-        profile = `motor-${process.env.MIRA_MOTOR_W || "1080"}x${process.env.MIRA_MOTOR_H || "1920"}@${process.env.MIRA_MOTOR_FPS || "30"}fps`;
+        profile = "motor-720x1280@24fps";
         stages.render = { engine: "python-motor", durationSeconds, bytes: video.length, renderMs: motor.renderMs, qc: motor.qcOutput.slice(-220), profile };
       } catch (motorError) {
         const msg = motorError instanceof Error ? motorError.message : String(motorError);

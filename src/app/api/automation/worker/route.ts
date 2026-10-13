@@ -316,6 +316,8 @@ export async function POST(req: Request) {
       const topic = claimed.topic?.trim() || claimed.title;
       const archiveContext = await loadArchiveContext(topic);
       const topicSelectionSpec = await readFile(path.join(process.cwd(), "mira_konu_secim_spec.md"), "utf8").catch(() => "");
+      const templateSpec = await readFile(path.join(process.cwd(), "mira-prompt", "BILGI_DOZU_TEMPLATE_SPEC.md"), "utf8").catch(() => "");
+      if (!templateSpec.trim()) throw new Error("Sabit Bilgi Dozu şablon spesifikasyonu okunamadı; taslak üretilmedi.");
 
       await reportScriptProgress(claimed.id, 8, "Konu ve arşiv bağlamı inceleniyor…", "running", archiveContext ? "Konu arşivinde eşleşen bağlam bulundu; bu bilgi taslak istemine eklenecek." : "Konu arşivinde yeterli eşleşme bulunmadı; taslak kullanıcının verdiği konu üzerinden hazırlanacak.", "Kanal yönergesini kontrol edip senaryo modelini çağıracağım.");
       let signalDirective: Record<string, unknown> | null = null;
@@ -341,7 +343,7 @@ export async function POST(req: Request) {
           "Güvenilir kaynağı gerçekten bilmiyorsan kaynak veya URL uydurma; KAYNAK bölümüne yalnızca 'DOĞRULAMA GEREKLİ' yaz. Doğrulanmamış sayısal değer, rekor, teknik özellik veya kesin iddia ekleme.",
           "Balık kabuğunun ilk telefon olduğu, uzayda çikolatanın yıldız gibi parladığı veya bir köpeğin yedi dil bildiği gibi temelsiz/kanıtsız iddiaları üretme.",
           "Çıktı başlıkları: KANCA, SESLENDİRME, EKRAN METNİ, GÖRSEL TASARIMI, SES VE MÜZİK, KAYNAK, AÇIKLAMA, ETİKETLER.",
-          "Görsel formatı: dikey 9:16, 1080x1920, 30 fps; tam iki görsel sahne, hafif Ken Burns hareketi; koyu tonlar, üst-alt siyah gradyan; ince gri ilerleme çubuğu ve #D4FF3F neon yeşil vurgu; üst solda 'BİLGİ DOZU', altta marka adı.",
+          `SABİT GÖRSEL ŞABLON — yerleşim, renk, logo, font ve altyazı stili değiştirilemez; aşağıdaki spesifikasyonu aynen uygula:\n${templateSpec}`,
           "Ekran metni kısa, okunaklı ve 2-3 satır olsun; anahtar son ifade neon yeşil vurgulansın. Türkçe doğal ve otoriter ses, kelime kelime senkron altyazı, düşük seviyeli gizemli müzik kullan.",
           "Taslağın en sonuna TASARIM başlıklı bölüm ekle; içinde YALNIZCA tek satır JSON olsun: {\"title\":[[\"SATIR1\"],[\"SATIR2\"],[[\"SON SATIR\",\"g\"]]],\"note1\":\"GERÇEK ÖZETİ (CAPS, ≤80 kr)\",\"note2\":\"SOYADI • KAYNAK (YIL)\",\"accents\":[\"k1\",\"k2\",\"k3\"]}. Başlık = içerik başlığının 2-3 satırlık BÜYÜK HARF hâli, son satır \"g\" işaretli (yeşil segment). accents = SESLENDİRME metninde birebir geçen 3-5 vurucu kelime. Kaynak belli değilse note2 olarak 'BİLGİ DOZU EDİTÖR DERLEMESİ (2026)' yaz.",
           "İçeriği yayınlama, video dosyası oluştuğunu iddia etme; yalnızca metin taslağı hazırla. Taslağın onay beklediğini açıkça belirt.",

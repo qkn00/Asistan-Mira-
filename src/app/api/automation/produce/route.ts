@@ -39,7 +39,7 @@ async function imagePromptsWithLlm(topic: string, script: string, narration: str
       "Write exactly 2 visual scene prompts: opening/hook and the main fact/result, with the scene transition near the midpoint.",
       "Each prompt must depict a CONCRETE, physically representable subject directly tied to the narration: a person doing something, a recognizable object, a real place. If the narration mentions specifics (bank, money, vault, building, machine...), the scene must show those.",
       "FORBIDDEN: purely abstract/atmospheric scenes made only of light beams, gradients, glowing shapes, empty fog, or generic tech ambience.",
-      "Each prompt: one cinematic vertical 9:16 scene, dark tones, neon green (#D4FF3F) accent, no text or lettering in the image.",
+      "Each prompt: one cinematic vertical 9:16 background scene, dark/blue-cold grade, vignette and film grain; neon green (#D4FF3F) may appear only as a natural scene accent. No text, logo, watermark, brand tag, progress bar, headline, subtitles, or template graphics in the generated image; the fixed renderer adds all brand graphics.",
       "Prompts must be in English, 25-60 words each, safe for work, photorealistic or cinematic illustration.",
       'Return ONLY valid JSON: {"prompts": ["...", "..."]}',
     ].join("\n"),

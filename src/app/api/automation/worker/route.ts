@@ -160,37 +160,6 @@ async function readPublicSource(raw: string): Promise<{ url: string; text: strin
   throw new Error("Kaynak yönlendirmesi çözülemedi.");
 }
 
-async function discoverPublicSources(query: string): Promise<string[]> {
-  const searchUrl = new URL("https://html.duckduckgo.com/html/");
-  searchUrl.searchParams.set("q", query.slice(0, 500));
-  const response = await fetch(searchUrl, {
-    signal: AbortSignal.timeout(8000),
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; MiraFactCheck/1.0)" },
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error("Otomatik kaynak araması HTTP " + response.status + " döndürdü.");
-  const html = (await response.text()).slice(0, 300_000);
-  const matches = [...html.matchAll(/class=["\']result__a["\'][^>]*href=["\']([^"\']+)["\']/gi)];
-  const trusted = TRUSTED_SOURCE_DOMAINS;
-  const urls: string[] = [];
-  for (const match of matches) {
-    let candidate = match[1].replace(/&amp;/g, "&");
-    try {
-      const wrapped = new URL(candidate, "https://html.duckduckgo.com");
-      const redirected = wrapped.searchParams.get("uddg");
-      if (redirected) candidate = redirected;
-      const safe = isPublicHttpsUrl(candidate);
-      if (!safe) continue;
-      const host = safe.hostname.toLowerCase().replace(/^www\./, "");
-      if (!trusted.some((domain) => host === domain || host.endsWith("." + domain)) && !/\.edu(?:\.tr)?$/.test(host) && !/\.ac\.uk$/.test(host) && !/\.gov(?:\.tr)?$/.test(host)) continue;
-      const normalized = safe.toString();
-      if (!urls.includes(normalized)) urls.push(normalized);
-      if (urls.length >= 3) break;
-    } catch { /* Ignore malformed search results. */ }
-  }
-  return urls;
-}
-
 async function verifyScriptSources(contentId: number, script: string, narration: string, topic: string): Promise<FactGateResult> {
   await reportScriptProgress(contentId, 58, "Senaryodaki kaynaklar inceleniyor…", "running", "Taslak içindeki KAYNAK bölümünden HTTPS bağlantıları çıkarılıyor ve güvenilir alan adları denetleniyor.", "Kaynak yoksa otomatik arama başlatacağım.");
   const sections = parseDraftScript(script);
@@ -213,19 +182,9 @@ async function verifyScriptSources(contentId: number, script: string, narration:
       searchChannel = `akademik indeksler (openalex:${academic.engines.openalex} crossref:${academic.engines.crossref} pubmed:${academic.engines.pubmed})`;
     }
     if (!candidates.length) {
-      await reportScriptProgress(contentId, 61, "Akademik indeksler boş döndü; DuckDuckGo yedeği deneniyor…", "running", `Akademik keşif boş döndü${academic.errors.length ? ` (motor hataları: ${academic.errors.join(" | ")})` : ""}; web keşfiyle devam ediyorum.`, "Arama sonuçlarından güvenilir alan adlarına ait bağlantıları seçeceğim.");
-      try {
-        candidates = await discoverPublicSources((topic + " " + narration.slice(0, 220) + " scientific evidence source"));
-        if (candidates.length) searchChannel = "duckduckgo-web";
-      } catch (error) {
-        const reason = "Akademik keşif boş döndü; DDG araması da hata verdi: " + (error instanceof Error ? error.message : String(error)).slice(0, 300);
-        await reportScriptProgress(contentId, 62, "Kaynak araması hata verdi", "failed", reason, "Kaynak araması hatasını inceleyip güvenilir bir bağlantı sağlandıktan sonra yeniden dene.");
-        return { ok: false, sourceUrls: [], reason: "Kaynak verilmedi; " + reason, engines: academicStats };
-      }
-    }
-    if (!candidates.length) {
-      await reportScriptProgress(contentId, 62, "Güvenilir kaynak bulunamadı", "failed", "Akademik indeksler (OpenAlex/Crossref/PubMed) ve web keşfi güvenilir HTTPS kaynağı döndürmedi.", "Kaynak bağlantısı eklenmeli veya konu doğrulanabilir kaynakla yeniden hazırlanmalı.");
-      return { ok: false, sourceUrls: [], reason: "Kaynak verilmedi; akademik indekslerde ve web keşfinde güvenilir HTTPS kaynağı bulunamadı.", engines: academicStats };
+      const reason = `Kaynak bulunamadı: OpenAlex/Crossref/PubMed sonuç vermedi${academic.errors.length ? ` (motor hataları: ${academic.errors.join(" | ")})` : ""}. DuckDuckGo kullanılmıyor; kaynak uydurulmayacak.`;
+      await reportScriptProgress(contentId, 62, "Akademik indekslerde güvenilir kaynak bulunamadı", "failed", reason, "Konuyu kaynak bulunduktan sonra yeniden dene; doğrulanmamış iddia üretme.");
+      return { ok: false, sourceUrls: [], reason, engines: academicStats };
     }
   }
   await reportScriptProgress(contentId, 63, "Kaynak bağlantıları bulundu…", "running", `${candidates.length} güvenilir kaynak adayı bulundu: ${candidates.join(" ; ")}`, "Bağlantıları açıp okunabilir kaynak metni olup olmadığını kontrol edeceğim.");

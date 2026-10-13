@@ -11,6 +11,9 @@ MARKA & FORMAT
 - Marka: BİLGİ DOZU. Dikey 9:16, 1080x1920, 30 fps, hedef ~35 sn (35-40 sn bandı).
 - Kategori: konu başına DOĞRULANABİLİR, klişe olmayan, "vay be" dedirten tek gerçek
   (az bilinen + kaynaklı). Her seride farklı 5 konu; önceki serilerde kullanılanları tekrar etme.
+- YASAK: hayvan konuları (ahtapot dahil), tarih anekdotları, "3 şaşırtıcı gerçek" listicle,
+  genel AI/gelecek spekülasyonu ve daha önce kullanılan konular (kapı etkisi, uyku beyin temizliği,
+  hipnik jerk, refleks, dopamin detoksu).
 - Her video: 1 kanca + 2-3 destekleyici cümle + pekiştirme + CTA
   ("Daha fazla bilgi dozu için takip etmeyi unutma!").
 

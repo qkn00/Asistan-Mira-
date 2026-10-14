@@ -241,11 +241,11 @@ Sadece JSON döndür: {"reply": string, "emotion": "happy"|"surprised"|"sad"|"pl
     // HTML disclosure etiketlerini ve yalnızca metni saran kod çitlerini temizle.
     // Başlık ve senaryo, sohbet ekranında doğrudan okunabilir biçimde kalır.
     reply = reply
-      .replace(/<summary\\b[^>]*>([\\s\\S]*?)<\\/summary>/giu, "**$1**")
-      .replace(/<details\\b[^>]*>|<\\/details>/giu, "")
-      .replace(/<br\\s*\\/?\\s*>/giu, "\\n")
+      .replace(/<summary\b[^>]*>([\s\S]*?)<\/summary>/giu, "**$1**")
+      .replace(/<details\b[^>]*>|<\/details>/giu, "")
+      .replace(/<br\s*\/?\s*>/giu, "\n")
       .replace(/<[^>]+>/gu, "")
-      .replace(/^\\s*```(?:text|markdown)?\\s*\\n([\\s\\S]*?)\\n```\\s*$/iu, "$1")
+      .replace(/^\s*```(?:text|markdown)?\s*\n([\s\S]*?)\n```\s*$/iu, "$1")
       .trim();
 
     if (!reply) {

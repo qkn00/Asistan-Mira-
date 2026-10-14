@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BİLGİ DOZU — 15 Shorts Videosu Arşivi & İndirme Merkezi</title>
+  <style>
+    :root {
+      --bg: #0d0f12;
+      --card: #161b22;
+      --border: #262f3d;
+      --neon: #D4FF3F;
+      --neon-glow: rgba(212, 255, 63, 0.25);
+      --text: #f0f6fc;
+      --text-muted: #8b949e;
+      --accent-yellow: #ffe14a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      padding: 30px 20px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 30px 20px;
+      background: linear-gradient(180deg, #182218 0%, var(--card) 100%);
+      border: 1px solid rgba(212, 255, 63, 0.3);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px var(--neon-glow);
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--neon);
+      background: rgba(212, 255, 63, 0.1);
+      border: 1px solid var(--neon);
+      border-radius: 20px;
+      margin-bottom: 12px;
+      letter-spacing: 1.5px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+    }
+    p.lead {
+      color: var(--text-muted);
+      font-size: 15px;
+      max-width: 780px;
+      margin: 0 auto 20px auto;
+    }
+    .main-download-box {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+    .btn-main-zip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--neon);
+      color: #0b110b;
+      font-weight: 900;
+      font-size: 17px;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      box-shadow: 0 6px 24px var(--neon-glow);
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-main-zip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 32px rgba(212, 255, 63, 0.45);
+      background: #e3ff6e;
+    }
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      background: rgba(255,255,255,0.05);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #c9d1d9;
+      border: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 22px;
+      font-weight: 900;
+      margin: 40px 0 16px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 22px;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s;
+    }
+    .card:hover {
+      border-color: rgba(212, 255, 63, 0.4);
+    }
+    .video-wrapper {
+      position: relative;
+      background: #000;
+      width: 100%;
+      height: 460px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+    .card-body {
+      padding: 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .video-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--neon);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+    .card-source {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .btn-download-video {
+      display: block;
+      text-align: center;
+      background: #21262d;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+      margin-top: auto;
+      cursor: pointer;
+    }
+    .btn-download-video:hover {
+      background: var(--neon);
+      color: #000;
+      border-color: var(--neon);
+    }
+    .extra-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 30px;
+    }
+    .code-box {
+      background: #090c10;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: monospace;
+      font-size: 13px;
+      color: #7ee787;
+      margin-top: 10px;
+      overflow-x: auto;
+    }
+  </style>
+  <script>
+    function triggerDownload(fileName) {
+      const a = document.createElement('a');
+      a.href = fileName;
+      a.download = fileName;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">BİLGİ DOZU • 15 VİDEOLUK TAM ARŞİV</div>
+      <h1>Shorts Üretim & İndirme Portalı</h1>
+      <p class="lead">Seri 1, Seri 2 ve Seri 3 tamamlandı. Toplam 15 adet dikey Shorts videosu hazır!</p>
+
+      <div class="main-download-box">
+        <button onclick="triggerDownload('BILGI_DOZU_SERI_3.zip')" class="btn-main-zip">
+          <span>📦</span>
+          <span>YENİ SERİ 3'Ü İNDİR (.ZIP — 27 MB)</span>
+        </button>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat-pill">🎬 Toplam 15 Shorts Videosu</div>
+        <div class="stat-pill">📐 1080x1920 Dikey (9:16)</div>
+        <div class="stat-pill">🔊 EBU R128 (-13.6 LUFS)</div>
+        <div class="stat-pill">🐍 Python JSON Otomasyonu Hazır</div>
+      </div>
+    </header>
+
+    <!-- SERİ 3 -->
+    <div class="section-title">💎 SERİ 3: En Yeni 5 Video (Video 11 - 15)</div>
+    <div class="grid">
+      <!-- Video 11 -->
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_11.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Uzay & Gezegenler • 34.6 sn</div>
+          <div class="card-title">Gökten Elmas Yağan Gezegenler</div>
+          <div class="card-source">Kaynak: Nature Astronomy / Kraus et al. (2017)</div>
+          <button onclick="triggerDownload('video_11.mp4')" class="btn-download-video">⬇️ Video 11 İndir (MP4)</button>
+        </div>
+      </div>
+      <!-- Video 12 -->
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_12.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Ekstrem Biyoloji • 33.4 sn</div>
+          <div class="card-title">Tardigradlar Uzayda Yaşıyor</div>
+          <div class="card-source">Kaynak: Current Biology / Jönsson et al. (2008)</div>
+          <button onclick="triggerDownload('video_12.mp4')" class="btn-download-video">⬇️ Video 12 İndir (MP4)</button>
+        </div>
+      </div>
+      <!-- Video 13 -->
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_13.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Nörobilim • 33.5 sn</div>
+          <div class="card-title">Göz Bebeklerin Odaklanınca Büyür</div>
+          <div class="card-source">Kaynak: Science / Hess & Polt (1960)</div>
+          <button onclick="triggerDownload('video_13.mp4')" class="btn-download-video">⬇️ Video 13 İndir (MP4)</button>
+        </div>
+      </div>
+      <!-- Video 14 -->
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_14.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Doğa & Botanik • 37.3 sn</div>
+          <div class="card-title">En Yaşlı Canlı: Pando Ormanı</div>
+          <div class="card-source">Kaynak: W. N. Am. Naturalist / DeWoody (2008)</div>
+          <button onclick="triggerDownload('video_14.mp4')" class="btn-download-video">⬇️ Video 14 İndir (MP4)</button>
+        </div>
+      </div>
+      <!-- Video 15 -->
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_15.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Fizik • 35.1 sn</div>
+          <div class="card-title">Yıldırımlar Aşağıdan Yukarı Çakar</div>
+          <div class="card-source">Kaynak: Scientific American / Lightning (2014)</div>
+          <button onclick="triggerDownload('video_15.mp4')" class="btn-download-video">⬇️ Video 15 İndir (MP4)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SERİ 2 -->
+    <div class="section-title">🔥 SERİ 2: Önceki 5 Video (Video 6 - 10)</div>
+    <div class="grid">
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_6.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Kimya • 34.2 sn</div>
+          <div class="card-title">Su Aslında Doğal Olarak Mavidir</div>
+          <button onclick="triggerDownload('video_6.mp4')" class="btn-download-video">⬇️ Video 6 İndir</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_7.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Biyoloji • 35.4 sn</div>
+          <div class="card-title">Bal Arıları Sıfır Sayısını Biliyor</div>
+          <button onclick="triggerDownload('video_7.mp4')" class="btn-download-video">⬇️ Video 7 İndir</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_8.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Ekoloji • 34.4 sn</div>
+          <div class="card-title">Karıncalar İnsanlardan Daha Ağır</div>
+          <button onclick="triggerDownload('video_8.mp4')" class="btn-download-video">⬇️ Video 8 İndir</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_9.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Uzay • 37.1 sn</div>
+          <div class="card-title">Europa'da Dünya'dan Çok Su Var</div>
+          <button onclick="triggerDownload('video_9.mp4')" class="btn-download-video">⬇️ Video 9 İndir</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_10.mp4" type="video/mp4"></video></div>
+        <div class="card-body">
+          <div class="video-tag">Arkeoloji • 38.9 sn</div>
+          <div class="card-title">Roma Betonu Kendini Onarıyordu</div>
+          <button onclick="triggerDownload('video_10.mp4')" class="btn-download-video">⬇️ Video 10 İndir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SERİ 1 -->
+    <div class="section-title">⚡ SERİ 1: İlk Seri Videoları (Video 1 - 5)</div>
+    <div class="grid">
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_1.mp4" type="video/mp4"></video></div>
+        <div class="card-body"><div class="card-title">Venüs'te Bir Gün Bir Yıldan Uzun</div><button onclick="triggerDownload('video_1.mp4')" class="btn-download-video">⬇️ Video 1 İndir</button></div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_2.mp4" type="video/mp4"></video></div>
+        <div class="card-body"><div class="card-title">Kargalar Yüzünü Asla Unutmaz</div><button onclick="triggerDownload('video_2.mp4')" class="btn-download-video">⬇️ Video 2 İndir</button></div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_3.mp4" type="video/mp4"></video></div>
+        <div class="card-body"><div class="card-title">Yediğin Muz Aslında Radyoaktif</div><button onclick="triggerDownload('video_3.mp4')" class="btn-download-video">⬇️ Video 3 İndir</button></div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_4.mp4" type="video/mp4"></video></div>
+        <div class="card-body"><div class="card-title">Ağaçlar Birbiriyle Konuşuyor</div><button onclick="triggerDownload('video_4.mp4')" class="btn-download-video">⬇️ Video 4 İndir</button></div>
+      </div>
+      <div class="card">
+        <div class="video-wrapper"><video controls preload="metadata" playsinline><source src="video_5.mp4" type="video/mp4"></video></div>
+        <div class="card-body"><div class="card-title">Sen Bir Yıldız Tozusun</div><button onclick="triggerDownload('video_5.mp4')" class="btn-download-video">⬇️ Video 5 İndir</button></div>
+      </div>
+    </div>
+
+    <!-- Python & Meta files -->
+    <div class="section-title">🐍 Python Otomasyonu & Meta Veriler</div>
+    <div class="extra-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 16px;">
+        <div>
+          <div style="font-weight: 800; font-size: 16px;">Toplu Yükleme JSON Verisi & Python Betiği</div>
+          <div style="color: var(--text-muted); font-size: 13px;">15 videonun dosya adı, başlık, açıklama ve etiketlerini içeren hazır JSON</div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button onclick="triggerDownload('bilgi_dozu_data.json')" class="btn-download-video">⬇️ JSON İndir</button>
+          <button onclick="triggerDownload('toplu_youtube_yukleyici.py')" class="btn-download-video">⬇️ Python Scripti</button>
+          <button onclick="triggerDownload('BILGI_DOZU_SHORTS_METADATA.md')" class="btn-download-video">⬇️ Markdown Metin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

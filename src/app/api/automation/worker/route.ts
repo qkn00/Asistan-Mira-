@@ -99,7 +99,11 @@ export function isTrustedSourceUrl(raw: string): boolean {
 
 export function extractCandidateSourceUrls(sourceSection: string, topic?: string): string[] {
   // 1. Önce senaryodaki KAYNAK bölümündeki doğrudan https:// linklerini ara
-  let candidates = extractCandidateSourceUrls(sourceSection, topic);
+  let candidates = [...sourceSection.matchAll(/https:\/\/[^\s)\]>]+/gi)]
+    .map((match) => match[0].replace(/[.,;]+$/, ""))
+    .filter((url, index, all) => all.indexOf(url) === index)
+    .filter((url) => isTrustedSourceUrl(url))
+    .slice(0, 3);
 
   // 2. Model KAYNAK başlığına linki yazmamış veya eksiltmişse,
   // kullanıcının sağladığı topic/girdi içindeki güvenilir HTTPS linklerini al

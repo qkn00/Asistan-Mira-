@@ -432,17 +432,14 @@ export async function POST(req: Request) {
       const rawNarration = extractNarration(scriptText, `${claimed.title}. ${topic}`);
       await reportScriptProgress(claimed.id, 54, "Senaryo metni çıkarıldı…", "running", `Seslendirme metni ayrıştırıldı; ${rawNarration.split(/\s+/).filter(Boolean).length} kelime bulundu. Kaynak denetimi başlıyor.`, "Kaynak bağlantılarını açıp ana iddiaları karşılaştıracağım.");
       const factCheck = await verifyScriptSources(claimed.id, scriptText, rawNarration, claimed.title + ". " + topic);
-      // Manuel konu doktrini: SENİN elinle girdiğin konular kapıda ölmez. Kapı yine çalışır, sonucu operasyon
-      // günlüğüne ve Telegram’a düşer; ama doğrulama bulunamazsa taslak "failed" DEĞİL "draft" olur,
-      // panelde görünür, istersen kaynak ekleyip tekrar denetletirsin. Otomatik araştırma akışı için
-      // kapı eskiden olduğu gibi SERT çalışır (otomatik kalite duvarı aynen ayakta).
+      // Kaynak doğrulaması tüm konular için zorunludur. Manuel konu girişi bu kapıyı atlayamaz.
       const manualGrace = body.manualTopic === true;
       // Silme isteği üretim sürerken geldiyse senaryo kaydına yazmadan önce tekrar denetle.
       if (await isPermanentlyDeletedTopic(db, [claimed.title, topic])) {
         await removePermanentlyDeletedItem(claimed.id, claimed.title, topic);
         return;
       }
-      const gatePass = factCheck.ok || manualGrace;
+      const gatePass = factCheck.ok;
       await db.insert(operations).values({
         action: factCheck.ok ? "fact_check_passed" : "fact_check_blocked",
         summary: factCheck.ok ? `Kaynak kontrolü geçti: ${claimed.title}` : `Kaynak/doğruluk kontrolü başarısız: ${claimed.title}`,
@@ -454,7 +451,7 @@ export async function POST(req: Request) {
         source: "worker/gate",
         message: factCheck.ok
           ? `Kaynak kapısını GEÇTİ #${claimed.id} — ${claimed.title}`
-          : `Kapı takıldı #${claimed.id} — ${manualGrace ? "manuel taslak KORUNDU" : "taslak RED"}: ${factCheck.reason}`,
+          : `Kapı takıldı #${claimed.id} — taslak RED`: ${factCheck.reason}`,
         meta: { contentId: claimed.id, manualGrace, sourceUrls: factCheck.sourceUrls.slice(0, 5), engines: factCheck.engines, reason: factCheck.reason.slice(0, 300) },
       });
       await reportScriptProgress(claimed.id, 82, "Senaryo ve kaynak analizi tamamlanıyor…", "running", "Senaryo metni, kullanılan model ve kaynak kontrolü sonucu kayıt altına alınıyor.", "Taslağı onay bekleyen duruma getireceğim; bu adım video üretmez veya YouTube’a yüklemez.");
@@ -551,7 +548,7 @@ export async function POST(req: Request) {
       // Yayın (YouTube yükleme) kapısı açık değildir; video panelde incelenmeyi bekler.
       // MIRA_AUTO_PRODUCE=0 ile tamamen kapatılabilir.
       // Üretim pilotu varsayılan-AÇIK (MIRA_AUTO_PRODUCE=0 kapatır). manualProduce=true ek isteği de
-      // dürter. Video üretimi doğrulama kapısından (manuel konu koruma DAHİL) geçmişin gerektirir.
+      // dürter. Her durumda kaynak doğrulama kapısının geçilmiş olması zorunludur.
       const autoProduce = (process.env.MIRA_AUTO_PRODUCE !== "0" || body.manualProduce === true) && gatePass;
       const autopilot: Record<string, unknown> = { enabled: autoProduce };
       if (autoProduce) {

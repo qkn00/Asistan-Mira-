@@ -453,7 +453,7 @@ export async function POST(req: Request) {
           : `Kapı takıldı #${claimed.id} — taslak RED: ${factCheck.reason}`,
         meta: { contentId: claimed.id, manualTopic: body.manualTopic === true, sourceUrls: factCheck.sourceUrls.slice(0, 5), engines: factCheck.engines, reason: factCheck.reason.slice(0, 300) },
       });
-      await reportScriptProgress(claimed.id, 82, "Senaryo ve kaynak analizi tamamlanıyor…", "running", "Senaryo metni, kullanılan model ve kaynak kontrolü sonucu kayıt altına alınıyor.", "Taslağı onay bekleyen duruma getireceğim; bu adım video üretmez veya YouTube’a yüklemez.");
+      await reportScriptProgress(claimed.id, 82, "Senaryo ve kaynak analizi tamamlanıyor…", "running", "Senaryo metni, kullanılan model ve kaynak kontrolü sonucu kayıt altına alınıyor.", "Kaynak doğrulaması geçerse taslak onaya açılır; geçmezse üretim engellenir.");
       const [savedOperation] = await db.insert(operations).values({
         action: "autonomous_content_draft",
         summary: `Mira otomatik içerik taslağı hazırladı: ${claimed.title}`,
@@ -609,7 +609,7 @@ export async function POST(req: Request) {
           : `Kaynak doğrulanmadığı için taslak reddedildi; video üretimi yapılmadı. ${factCheck.reason}`,
         gatePass ? "Senaryoyu inceleyip onaylayabilirsin." : "Kaynağı/iddiaları düzeltip yeniden doğrulama yapmadan video üretimine geçme.");
       console.log(`[Worker] Senaryo tamamlandı (arka plan): #${updated.id} "${updated.title}" — model ${scriptProvider.provider}/${scriptProvider.model}, ${narrationWords} kelime, op #${savedOperation.id}.`);
-      await logEvent({ level: "success", source: "worker/script", message: `Senaryo işlemi #${updated.id} — "${updated.title}" | kaynak kapısı: ${factCheck.ok ? "GEÇTİ" : "RED"} | ${narrationWords} kelime | @${scriptProvider.provider}`, meta: { contentId: updated.id, operationId: savedOperation.id, manualTopic: body.manualTopic === true } });
+      await logEvent({ level: factCheck.ok ? "success" : "error", source: "worker/script", message: `Senaryo işlemi #${updated.id} — "${updated.title}" | kaynak kapısı: ${factCheck.ok ? "GEÇTİ" : "RED"} | ${narrationWords} kelime | @${scriptProvider.provider}`, meta: { contentId: updated.id, operationId: savedOperation.id, manualTopic: body.manualTopic === true } });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       await reportScriptProgress(claimed.id, 0, `İşlem başarısız: ${reason.slice(0, 240)}`, "failed", "İşlem bu aşamada tamamlanamadı; hata kaydı korunuyor.", "Mira hatayı ve eksik koşulu gösterecek. Sorun otomatik düzeltme kapsamındaysa yeniden denenecek; değilse kaynağı veya model çıktısını düzeltmek gerekecek.");

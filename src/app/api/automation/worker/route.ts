@@ -451,7 +451,7 @@ export async function POST(req: Request) {
         source: "worker/gate",
         message: factCheck.ok
           ? `Kaynak kapısını GEÇTİ #${claimed.id} — ${claimed.title}`
-          : `Kapı takıldı #${claimed.id} — taslak RED`: ${factCheck.reason}`,
+          : `Kapı takıldı #${claimed.id} — taslak RED: ${factCheck.reason}`,
         meta: { contentId: claimed.id, manualGrace, sourceUrls: factCheck.sourceUrls.slice(0, 5), engines: factCheck.engines, reason: factCheck.reason.slice(0, 300) },
       });
       await reportScriptProgress(claimed.id, 82, "Senaryo ve kaynak analizi tamamlanıyor…", "running", "Senaryo metni, kullanılan model ve kaynak kontrolü sonucu kayıt altına alınıyor.", "Taslağı onay bekleyen duruma getireceğim; bu adım video üretmez veya YouTube’a yüklemez.");

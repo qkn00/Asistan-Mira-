@@ -18,7 +18,7 @@ export type NarrationResult = {
 };
 
 const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE || "tr-TR-EmelNeural";
-const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "+5%";
+const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "+0%";
 const MAX_GROUPS = 24;
 const MAX_GROUP_CHARS = 44;
 const MAX_GROUP_WORDS = 4;
@@ -254,7 +254,7 @@ function emotionAwareRate(options: NarrationOptions): string {
   };
   const emotion = options.emotion ?? "happy";
   const mode = options.solMode ?? "close";
-  const rate = Math.max(-20, Math.min(20, Math.round(base + emotionDelta[emotion] + modeDelta[mode] + 5)));
+  const rate = Math.max(-20, Math.min(20, Math.round(base + emotionDelta[emotion] + modeDelta[mode])));
   return `${rate >= 0 ? "+" : ""}${rate}%`;
 }
 

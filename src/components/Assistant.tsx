@@ -302,8 +302,9 @@ export default function Assistant() {
       const voiceProfile = solProfiles[settings.solMode] ?? solProfiles.close;
 
       speak(text, {
-        rate: Math.min(2, Math.max(0.5, voiceProfile.rate)),
-        pitch: Math.min(2, Math.max(0.5, voiceProfile.pitch)),
+        // Use the saved controls as the base; personality only adds a subtle delivery difference.
+        rate: Math.min(1.25, Math.max(0.75, settings.voiceRate * voiceProfile.rate)),
+        pitch: Math.min(1.5, Math.max(0.75, settings.voicePitch + voiceProfile.pitch - 1.05)),
         solMode: settings.solMode,
         emotion: e,
         onEnd: done,
@@ -321,28 +322,78 @@ export default function Assistant() {
       const temp: Msg = { id: -Date.now(), role: "user", content: text, emotion: "happy", createdAt: new Date().toISOString() };
       setMsgs((m) => [...m, temp]);
 
-      // Playful photo feature: when patron asks Mira for her photo, Mira
-      // can mischievously send her own avatar as if she just snapped a photo.
-      const asksForMiraPhoto =
-        /(?:fotoğraf|fotograf|resim|foto|selfie).*(?:gönder|at|yolla|göstersene|göstersene)|(?:gönder|at|yolla).*(?:fotoğraf|fotograf|resim|foto|selfie)|kendi.*(?:fotoğraf|fotograf|resim|foto|selfie)/iu.test(text);
+      // Komutu Türkçe karakterlerden bağımsız ve kelime bazlı tanı:
+      // "selfi at" gerçek selfie üretir; normal "foto at" kayıtlı Mira görselini yollar.
+      const normalizedCommand = text
+        .toLocaleLowerCase("tr-TR")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/ı/g, "i")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const asksForSelfie = /\b(selfie|selfi|selfy)\b/.test(normalizedCommand) &&
+        /\b(at|gonder|yolla|cek|ceksene|istiyorum|goster|gostersene|ver)\b/.test(normalizedCommand);
+      const asksForMiraPhoto = !asksForSelfie && (
+        /\b(fotograf|foto|resim|fotomu|fotografini)\b/.test(normalizedCommand) &&
+        /\b(at|gonder|yolla|cek|ceksene|istiyorum|goster|gostersene|ver)\b/.test(normalizedCommand) ||
+        /\bkendi\b.*\b(fotograf|foto|resim)\b/.test(normalizedCommand)
+      );
 
-      if (asksForMiraPhoto) {
-        const photoText =
-          settings.solMode === "flirty" || settings.persona === "flirty"
-            ? "Tamam patron... ama bunu gerçekten ben çekmişim gibi kabul ediyorsun, sonra naz yapmam 😏"
-            : "Tamam patron, al bakalım. Bunu da Mira'nın kendi fotoğrafı say 😌";
-        const photoMsg: Msg = {
-          id: Date.now(),
-          role: "assistant",
-          content: photoText,
-          emotion: "playful",
-          createdAt: new Date().toISOString(),
-          imageUrl: MIRA_AVATAR,
-        };
-        setMsgs((m) => [...m, photoMsg]);
-        showEmotion("playful", 5000);
-        say(photoText, "playful");
-        setThinking(false);
+      if (asksForSelfie || asksForMiraPhoto) {
+        setThinking(true);
+        showEmotion("focused");
+        try {
+          let imageUrl = MIRA_AVATAR;
+          let photoText = "Al bakalım, fotoğrafım burada 😊";
+          if (asksForSelfie) {
+            const response = await fetch("/api/image/selfie", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ prompt: "Mira selfie" }),
+              credentials: "same-origin",
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || typeof data.imageUrl !== "string" || !data.imageUrl.startsWith("data:image/")) {
+              throw new Error(typeof data.error === "string" ? data.error : "Selfie üretilemedi.");
+            }
+            imageUrl = data.imageUrl;
+            photoText = typeof data.reply === "string" ? data.reply : "Al bakalım bu iyi mi";
+          } else {
+            photoText = settings.solMode === "flirty" || settings.persona === "flirty"
+              ? "Al bakalım patron, fotoğrafım burada 😏"
+              : "Tamam patron, fotoğrafım burada 😌";
+          }
+          const photoMsg: Msg = {
+            id: Date.now(),
+            role: "assistant",
+            content: photoText,
+            emotion: "playful",
+            createdAt: new Date().toISOString(),
+            imageUrl,
+          };
+          setMsgs((m) => [...m.filter((x) => x.id !== temp.id), temp, photoMsg]);
+          showEmotion("playful", 5000);
+          say(photoText, "playful");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Fotoğraf gönderilemedi.";
+          const errorText = asksForSelfie && /özel mod|KIRMIZI2206|giriş yapmalısın/i.test(message)
+            ? "Selfie için önce Mira'ya giriş yapıp özel modu açmalısın."
+            : asksForSelfie
+              ? "Selfie'yi şu an üretemedim. Özel mod açık mı? Biraz sonra tekrar deneyelim."
+              : "Fotoğrafı gönderemedim; tekrar deneyelim.";
+          const errorMsg: Msg = {
+            id: Date.now() + 1,
+            role: "assistant",
+            content: errorText,
+            emotion: "sad",
+            createdAt: new Date().toISOString(),
+          };
+          setMsgs((m) => [...m.filter((x) => x.id !== temp.id), temp, errorMsg]);
+          say(errorText, "sad");
+        } finally {
+          setThinking(false);
+        }
         return;
       }
 

@@ -18,7 +18,7 @@ export type NarrationResult = {
 };
 
 const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE || "tr-TR-EmelNeural";
-const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "+5%";
+const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "+0%";
 const MAX_GROUPS = 24;
 const MAX_GROUP_CHARS = 44;
 const MAX_GROUP_WORDS = 4;
@@ -239,22 +239,22 @@ function emotionAwareRate(options: NarrationOptions): string {
   const baseMatch = EDGE_TTS_RATE.match(/([+-]?\d+(?:\.\d+)?)%/);
   const base = baseMatch ? Number(baseMatch[1]) : 0;
   const emotionDelta: Record<MiraTtsEmotion, number> = {
-    happy: 2,
-    surprised: 7,
-    sad: -9,
-    playful: 4,
-    focused: -4,
+    happy: 1,
+    surprised: 4,
+    sad: -6,
+    playful: 2,
+    focused: -2,
   };
   const modeDelta: Record<MiraSolMode, number> = {
     sweet: -1,
-    flirty: -3,
+    flirty: -1,
     serious: -2,
-    excited: 5,
-    close: -2,
+    excited: 3,
+    close: -1,
   };
   const emotion = options.emotion ?? "happy";
   const mode = options.solMode ?? "close";
-  const rate = Math.max(-20, Math.min(20, Math.round(base + emotionDelta[emotion] + modeDelta[mode] + 5)));
+  const rate = Math.max(-20, Math.min(20, Math.round(base + emotionDelta[emotion] + modeDelta[mode])));
   return `${rate >= 0 ? "+" : ""}${rate}%`;
 }
 

@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   const senderChatId = String(callback.message?.chat?.id ?? "");
   const senderUserId = String(callback.from?.id ?? "");
   const configuredChatId = chatId || "";
-  if (!token || !configuredChatId || senderChatId !== configuredChatId || !senderUserId) {
+  if (!token || !configuredChatId || senderChatId !== configuredChatId || senderUserId !== configuredChatId) {
     await telegramCall("answerCallbackQuery", { callback_query_id: callback.id, text: "Bu işlem için yetki yok.", show_alert: true }).catch(() => {});
     return NextResponse.json({ ok: true });
   }
@@ -65,12 +65,14 @@ export async function POST(req: Request) {
     });
     if (!uploadRecord) throw new Error("Yükleme kaydı doğrulanamadı; güvenlik için yayın durduruldu.");
 
-    const [alreadyPublic] = await db.select().from(operations)
+    const publicRecords = await db.select().from(operations)
       .where(and(eq(operations.action, "youtube_make_public"), eq(operations.status, "success")))
-      .orderBy(desc(operations.id)).limit(100);
-    const alreadyMeta = alreadyPublic?.metadata && typeof alreadyPublic.metadata === "object"
-      ? alreadyPublic.metadata as Record<string, unknown> : {};
-    if (Number(alreadyMeta.contentId) === contentId) {
+      .orderBy(desc(operations.id)).limit(300);
+    const alreadyPublic = publicRecords.find((op) => {
+      const meta = op.metadata && typeof op.metadata === "object" ? op.metadata as Record<string, unknown> : {};
+      return Number(meta.contentId) === contentId && String(meta.videoId || op.externalId || "") === content.externalId;
+    });
+    if (alreadyPublic) {
       await telegramCall("answerCallbackQuery", { callback_query_id: callback.id, text: "Bu video zaten yayınlandı." }).catch(() => {});
       return NextResponse.json({ ok: true });
     }

@@ -66,6 +66,12 @@ async function removePermanentlyDeletedItem(contentId: number, title: string, to
     }
   }
 }
+function replaceNarrationSection(script: string, narration: string): string {
+  const pattern = /(^\s*(?:#{1,6}\s*)?SESLENDİRME\s*:?\s*\r?\n)[\s\S]*?(?=^\s*(?:#{1,6}\s*)?(?:EKRAN METNİ|GÖRSEL TASARIMI|SES VE MÜZİK|KAYNAK|AÇIKLAMA|ETİKETLER|TASARIM)\s*:?\s*$)/im;
+  if (!pattern.test(script)) throw new Error("SESLENDİRME bölümü güvenli biçimde bulunamadı; çeviri uygulanmadı.");
+  return script.replace(pattern, (_match, heading) => heading + narration.trim() + "\n\n");
+}
+
 type EEngineStats = { openalex: number; crossref: number; pubmed: number };
 type FactGateResult = { ok: boolean; sourceUrls: string[]; reason: string; engines?: EEngineStats };
 
@@ -259,6 +265,7 @@ async function verifyScriptSources(contentId: number, script: string, narration:
         "Kaynakla çelişen, kaynakta bulunmayan, abartılmış veya kesinliği kanıtlanmamış ana iddia varsa reddet.",
         "Genel konu benzerliği yeterli değildir; seslendirmedeki ana olgular kaynak metniyle doğrudan desteklenmeli.",
         "Arama sonuçlarının başlığı tek başına kanıt değildir; yalnızca aşağıda okunan sayfa metnini değerlendir.",
+        "Seslendirme ve kaynak farklı dillerdeyse iddiaları anlam üzerinden diller arası karşılaştır; yalnızca dil farkı nedeniyle reddetme.",
         "Yalnızca geçerli JSON döndür: {\"supported\": true veya false, \"reason\": \"kısa Türkçe gerekçe\"}. Emin değilsen supported=false.",
       ].join("\n"),
       history: [],
@@ -414,14 +421,15 @@ export async function POST(req: Request) {
       }
       const result = await generateWithFallback({
         system: [
-          "Sen Mira'nın Bilgi Dozu adlı YouTube Shorts kanalı için Türkçe içerik üretim motorusun.",
+          "Sen Mira'nın Bilgi Dozu adlı YouTube Shorts kanalı için kaynak dilini koruyan içerik üretim motorusun.",
+          "SESLENDİRME bölümünü kullanıcının verdiği içerik ve kaynak metninin özgün dilinde yaz. İngilizce giriş İngilizce kalmalı; ilk kaynak kontrolü geçmeden Türkçeye çevirme. Sabit bölüm başlıklarını koru.",
           "KAYNAK ÖNCE KURALI: Aşağıda DOĞRULANMIŞ KAYNAK METİNLERİ verilir. Senaryodaki HER BİLGİ yalnızca bu metinlerden alınabilir; metinde olmayan istatistik, oran, mekanizma, tarih, isim veya detay YAZILAMAZ. KAYNAK bölümüne yalnızca verilen URL'ler yazılır; başka kaynak uydurulmaz.",
           ...verifiedSources.map((s) => `KAYNAK ${s.url}\nMETİN: ${s.text}`),
           "OTOMATİK KONU SEÇİMİNDE mira_konu_secim_spec.md tek otoritedir. Hayvan konuları (ahtapot dahil), tarih anekdotları, '3 şaşırtıcı gerçek' listicle biçimi ve genel AI/gelecek spekülasyonu YASAKTIR. Tek doğrulanabilir ana gerçek seç; önceki kullanılan konuları tekrar etme. Her iddia kaynak doğrulamasından geçmelidir.",
           "Konu kullanıcı tarafından panelden açıkça verilmişse konuyu sessizce başka konuyla değiştirme; ancak tek gerçek, kaynak doğrulama ve kalite kapılarını uygula.",
           ...(topicSelectionSpec.trim() ? [`CANONICAL KONU SEÇİM SPEC'İ (kuralları aynen uygula):\n${topicSelectionSpec}`] : ["Konu seçim spec dosyası okunamadı: otomatik konu önerme; verilen manuel konuyu koru ve kaynak doğrulamasını uygula."]),
           "Her taslak yalnızca TEK bir konu ve TEK bir doğrulanabilir ana bilgi içersin. Üçlü liste, günlük hack listesi, gezi turu veya birbirinden bağımsız iddialar üretme.",
-          "Standart video süresi 35–40 saniyedir. SESLENDİRME 70–80 kelime olsun; kanca, 2–3 destek cümlesi, pekiştirme ve sabit CTA 'Daha fazla bilgi dozu için takip etmeyi unutma!' içersin. İlk 2 saniyede güçlü ama yanıltmayan kanca kullan. Sayıları seslendirmede yazıyla yaz.",
+          "Standart video süresi 35–40 saniyedir. SESLENDİRME 70–80 kelime olsun; kanca ve 2–3 destek cümlesi içersin. CTA seslendirme ile aynı dilde olsun. İlk 2 saniyede güçlü ama yanıltmayan kanca kullan. Sayıları seslendirmede yazıyla yaz. Özgün dilde doğrulama geçtikten sonra Türkçe çeviri ve sabit Türkçe CTA eklenecek.",
           "Her video için tam 2 ayrı görsel promptu üret: GÖRSEL 1 (açılış ve kanca), GÖRSEL 2 (ana bilgiyi ve sonucu gösteren sahne). İkisi de konuya birebir uyan koyu/sinematik dikey 9:16 arka plan olsun; sahne geçişi yaklaşık ortada olsun. Her görsel için üretime hazır prompt ver; görselin içine yazı ekleme.",
           "Kullanıcı yalnızca kısa konu yazmışsa varsayılan format 35–40 saniye, tam 2 görsel ve ilk 2 saniyede güçlü hook kullanır. Kullanıcının açıkça verdiği farklı süre/format talimatı önceliklidir.",
           "Kullanıcı girdisi KONU, KANCA, GELİŞME, KAYNAKLAR, BAŞLIK, AÇIKLAMA, ETİKETLER veya FORMAT gibi alanlar içeriyorsa bunu hazır içerik paketi kabul et. Alanları tek tek oku; kullanıcının kancasını, gelişmesini, başlığını, açıklamasını, CTA ve etiketlerini, süre/format talimatlarını koru. Metni genel bir konu başlığına indirgeme, alanları kaybetme veya verilen ayrıntıları baştan uydurarak değiştirme. Gerekirse yalnızca bilimsel doğruluk ve kısa video akışı için gerekli düzenlemeyi yap; önemli değişiklikleri sonuçta belirt.",
@@ -517,7 +525,7 @@ export async function POST(req: Request) {
         const repaired = await generateWithFallback({
           system: [
             "Sen Mira'nın taslak biçimi düzeltme motorusun.",
-            "Verilen senaryoyu baştan sona yeniden döndür. Konunun anlamını, doğrulanabilir iddiaları ve mevcut bilgileri koru; yeni doğrulanmamış bilgi veya kaynak uydurma.",
+            "Verilen senaryoyu baştan sona yeniden döndür. Konunun anlamını, doğrulanabilir iddiaları ve mevcut bilgileri koru; yeni doğrulanmamış bilgi veya kaynak uydurma. SESLENDİRME bölümünün özgün dilini değiştirme; İngilizce metni İngilizce bırak.",
             "Aşağıdaki başlıkların HER BİRİ ayrı bir bölüm başlığı olarak, tam yazımıyla zorunludur: KANCA, SESLENDİRME, EKRAN METNİ, GÖRSEL TASARIMI, SES VE MÜZİK, KAYNAK, AÇIKLAMA, ETİKETLER, TASARIM.",
             "EKRAN METNİ bölümünde kısa Türkçe metinleri, GÖRSEL TASARIMI bölümünde tam 2 ayrı görsel promptunu yaz.",
             "KAYNAK bölümünde doğrulanabilir tam HTTPS linkini (ör. https://science.nasa.gov/...) mutlaka açık URL olarak yaz.",
@@ -548,7 +556,8 @@ export async function POST(req: Request) {
         try {
           const lengthen = await generateWithFallback({
             system: [
-              "Sen Mira'nın Bilgi Dozu adlı YouTube Shorts kanalı için Türkçe içerik üretim motorusun.",
+              "Sen Mira'nın Bilgi Dozu adlı YouTube Shorts kanalı için kaynak dilini koruyan içerik üretim motorusun.",
+          "SESLENDİRME bölümünü kullanıcının verdiği içerik ve kaynak metninin özgün dilinde yaz. İngilizce giriş İngilizce kalmalı; ilk kaynak kontrolü geçmeden Türkçeye çevirme. Sabit bölüm başlıklarını koru.",
               "Verilen taslaktaki SESLENDİRME bölümünü 70-80 kelime arasına çıkar: kancayı, konuyu, CTA'yı ve tüm başlık yapısını koru; yalnızca kaynakla doğrulanabilir bilgi ekle.",
               "TASLAKIN TAMAMINI aynı başlıklarla döndür; başlık adları ve diğer bölümler değişmesin; hata/ret açıklaması yazma.",
             ].join("\n"),
@@ -569,17 +578,55 @@ export async function POST(req: Request) {
       }
 
 
-      const rawNarration = extractNarration(scriptText, `${claimed.title}. ${topic}`);
-      const ctaPattern = /takip\s+etmeyi\s+unutma/i;
-      if (!ctaPattern.test(rawNarration)) {
-        scriptText = scriptText.replace(
-          /(##?\s*SESLENDİRME[\s\S]*?)(\n\s*##?\s*[A-ZÇĞİÖŞÜ ]+|$)/i,
-          (m, p1, p2) => `${p1.trim()}\nDaha fazla bilgi dozu için takip etmeyi unutma!\n\n${p2}`
-        );
+      const rawNarrationOriginal = extractNarration(scriptText, claimed.title + ". " + topic);
+      await reportScriptProgress(claimed.id, 54, "Özgün dilde senaryo çıkarıldı…", "running", "Özgün seslendirme ayrıştırıldı; " + rawNarrationOriginal.split(/\s+/).filter(Boolean).length + " kelime. Önce çevirisiz kaynak doğrulaması yapılacak.", "Özgün dildeki iddiaları açılan kaynak metniyle karşılaştıracağım.");
+      // Birinci kapı: özgün dildeki senaryoyu henüz Türkçeye çevirmeden doğrula.
+      let factCheck = await verifyScriptSources(claimed.id, scriptText, rawNarrationOriginal, claimed.title + ". " + topic);
+      if (factCheck.ok) {
+        await reportScriptProgress(claimed.id, 78, "Özgün dil doğrulandı; Türkçe çeviri denetleniyor…", "running", "Özgün iddialar kaynak metniyle eşleşti. Şimdi yalnızca seslendirme Türkçeye çevrilecek ve anlam sadakati kontrol edilecek.", "Çeviride sayı, olumsuzluk, isim, birim ve neden-sonuç değişmediğini doğrulayacağım.");
+        try {
+          const translationResult = await generateWithFallback({
+            system: [
+              "Sen bilimsel içerik için katı bir kaynak dili/Türkçe çeviri ve anlam sadakati denetçisisin.",
+              "Özgün seslendirmeyi doğal Türkçeye çevir. Her iddiayı, olumsuzluğu, sayıyı, birimi, özel adı, belirsizlik derecesini ve neden-sonuç ilişkisini aynen koru. Yeni bilgi ekleme, bilgi çıkarma veya iddiayı güçlendirme.",
+              "Verilen kaynak metnini de kontrol et. Türkçe çeviri özgün metnin anlamını korumuyorsa faithful=false döndür; emin değilsen false.",
+              "Özgün seslendirme zaten Türkçeyse metni anlamını değiştirmeden koru.",
+              "Yalnızca geçerli JSON döndür: {\"translation\":\"Türkçe seslendirme\",\"faithful\":true veya false,\"reason\":\"kısa Türkçe gerekçe\"}. Markdown veya başka açıklama ekleme."
+            ].join("\n"),
+            history: [],
+            message: "ÖZGÜN SESLENDİRME (ilk kaynak kontrolünden geçti):\n" + rawNarrationOriginal + "\n\nKAYNAK METİNLERİ:\n" + verifiedSources.map((source) => "URL: " + source.url + "\n" + source.text).join("\n\n") + "\n\nGörev: özgün iddiaları değiştirmeden Türkçeye çevir ve sadakatini denetle."
+          });
+          const translationRaw = translationResult.content.trim()
+            .replace(/^\u0060{3}(?:json)?\s*/i, "")
+            .replace(/\s*\u0060{3}$/, "");
+          let translationParsed: { translation?: unknown; faithful?: unknown; reason?: unknown };
+          try {
+            translationParsed = JSON.parse(translationRaw) as { translation?: unknown; faithful?: unknown; reason?: unknown };
+          } catch {
+            throw new Error("Çeviri denetçisi geçerli JSON döndürmedi.");
+          }
+          const translated = typeof translationParsed.translation === "string" ? translationParsed.translation.trim() : "";
+          const translationReason = typeof translationParsed.reason === "string" ? translationParsed.reason.slice(0, 300) : "Çeviri sadakati gerekçesi yok.";
+          if (!translated || translationParsed.faithful !== true) {
+            factCheck = { ...factCheck, ok: false, reason: "Türkçe çeviri sadakat kontrolü başarısız: " + translationReason };
+          } else {
+            const ctaPattern = /takip\s+etmeyi\s+unutma/i;
+            const finalTurkishNarration = ctaPattern.test(translated)
+              ? translated
+              : translated + "\nDaha fazla bilgi dozu için takip etmeyi unutma!";
+            scriptText = replaceNarrationSection(scriptText, finalTurkishNarration);
+            const translatedNarration = extractNarration(scriptText, claimed.title + ". " + topic);
+            await reportScriptProgress(claimed.id, 80, "Türkçe çeviri sadakati geçti; ikinci kaynak kontrolü…", "running", "Çeviri kontrolü geçti: " + translationReason + " Türkçe seslendirme kaynakla tekrar karşılaştırılıyor.", "Türkçe metin de kaynak iddialarını koruyorsa üretim kapısını açacağım.");
+            factCheck = await verifyScriptSources(claimed.id, scriptText, translatedNarration, claimed.title + ". " + topic);
+            factCheck = factCheck.ok
+              ? { ...factCheck, reason: "Özgün dil kaynak kontrolü geçti; Türkçe çeviri sadakati geçti. " + factCheck.reason }
+              : { ...factCheck, reason: "Türkçe çeviri ikinci kaynak kontrolünden geçmedi: " + factCheck.reason };
+          }
+        } catch (translationError) {
+          const translationMessage = translationError instanceof Error ? translationError.message : String(translationError);
+          factCheck = { ...factCheck, ok: false, reason: "Türkçe çeviri/sadakat denetimi başarısız: " + translationMessage.slice(0, 300) };
+        }
       }
-      const rawNarrationFinal = extractNarration(scriptText, `${claimed.title}. ${topic}`);
-      await reportScriptProgress(claimed.id, 54, "Senaryo metni çıkarıldı…", "running", `Seslendirme metni ayrıştırıldı; ${rawNarration.split(/\s+/).filter(Boolean).length} kelime bulundu. Kaynak denetimi başlıyor.`, "Kaynak bağlantılarını açıp ana iddiaları karşılaştıracağım.");
-      const factCheck = await verifyScriptSources(claimed.id, scriptText, rawNarrationFinal, claimed.title + ". " + topic);
       // Kaynak doğrulaması tüm konular için zorunludur. Manuel konu girişi bu kapıyı atlayamaz.
       // Silme isteği üretim sürerken geldiyse senaryo kaydına yazmadan önce tekrar denetle.
       if (await isPermanentlyDeletedTopic(db, [claimed.title, topic])) {

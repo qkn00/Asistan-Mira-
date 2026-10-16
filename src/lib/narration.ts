@@ -18,7 +18,7 @@ export type NarrationResult = {
 };
 
 const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE || "tr-TR-EmelNeural";
-const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "+5%";
+const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE || "+0%";
 const MAX_GROUPS = 24;
 const MAX_GROUP_CHARS = 44;
 const MAX_GROUP_WORDS = 4;
@@ -33,19 +33,19 @@ function stripForTts(text: string) {
 }
 
 function elevenLabsVoiceSettings(options: NarrationOptions = {}) {
-  const emotion = options.emotion ?? "happy";
-  const mode = options.solMode ?? "close";
+  const emotion = options.emotion ?? "playful";
+  const mode = options.solMode ?? "flirty";
   const byEmotion: Record<MiraTtsEmotion, { stability: number; style: number; speed: number }> = {
-    happy: { stability: 0.46, style: 0.38, speed: 1.03 },
+    happy: { stability: 0.46, style: 0.38, speed: 1.00 },
     surprised: { stability: 0.32, style: 0.62, speed: 1.10 },
     sad: { stability: 0.68, style: 0.14, speed: 0.91 },
-    playful: { stability: 0.36, style: 0.60, speed: 1.06 },
+    playful: { stability: 0.30, style: 0.68, speed: 1.02 },
     focused: { stability: 0.64, style: 0.16, speed: 0.96 },
   };
   const base = byEmotion[emotion];
   const modeAdjustments: Record<MiraSolMode, { stability: number; style: number; speed: number }> = {
     sweet: { stability: 0.04, style: 0.06, speed: -0.03 },
-    flirty: { stability: -0.04, style: 0.14, speed: -0.02 },
+    flirty: { stability: -0.10, style: 0.22, speed: -0.04 },
     serious: { stability: 0.12, style: -0.08, speed: -0.03 },
     excited: { stability: -0.08, style: 0.16, speed: 0.05 },
     close: { stability: 0.06, style: 0.04, speed: -0.04 },
@@ -252,9 +252,9 @@ function emotionAwareRate(options: NarrationOptions): string {
     excited: 5,
     close: -2,
   };
-  const emotion = options.emotion ?? "happy";
-  const mode = options.solMode ?? "close";
-  const rate = Math.max(-20, Math.min(20, Math.round(base + emotionDelta[emotion] + modeDelta[mode] + 5)));
+  const emotion = options.emotion ?? "playful";
+  const mode = options.solMode ?? "flirty";
+  const rate = Math.max(-20, Math.min(20, Math.round(base + emotionDelta[emotion] + modeDelta[mode])));
   return `${rate >= 0 ? "+" : ""}${rate}%`;
 }
 

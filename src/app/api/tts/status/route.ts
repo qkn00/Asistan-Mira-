@@ -15,7 +15,7 @@ export async function GET() {
     fallbackProvider: "edge-tts",
     voice: elevenLabsConfigured
       ? process.env.ELEVENLABS_VOICE_ID
-      : process.env.EDGE_TTS_VOICE || "tr-TR-AhmetNeural",
+      : process.env.EDGE_TTS_VOICE || "tr-TR-EmelNeural",
     model: elevenLabsConfigured
       ? elevenLabsModel
       : "Microsoft Edge Neural TTS (free)",

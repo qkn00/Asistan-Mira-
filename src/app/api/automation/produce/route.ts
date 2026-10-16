@@ -6,7 +6,7 @@ import { contentAssets, contentItems, operations, tasks } from "@/db/schema";
 import { isPermanentlyDeletedTopic } from "@/lib/deleted-topics";
 import { like } from "drizzle-orm";
 import { generateWithFallback } from "@/lib/model-manager";
-import { generateNarration, type CaptionGroup } from "@/lib/narration";
+import { generateMaleNarration, type CaptionGroup } from "@/lib/narration";
 import { generateImage } from "@/lib/generate-image";
 import { renderShort, type RenderImage } from "@/lib/render-video";
 import { renderWithMotor, buildMotorDesign, MotorQCFailError, type MotorDesign } from "@/lib/motor-render";
@@ -187,7 +187,7 @@ async function measureMeanVolumeDb(mp3: Buffer | Uint8Array): Promise<number | n
 
 // TTS üret + ses gerçekten var mı diye doğrula; sessiz çıkarsa hata = retryStage yeniden dener.
 async function generateAudibleNarration(text: string) {
-  const narration = await generateNarration(text);
+  const narration = await generateMaleNarration(text);
   const meanDb = await measureMeanVolumeDb(narration.audio);
   if (meanDb !== null && meanDb < SILENT_THRESHOLD_DB) {
     throw new Error(`Seslendirme sessiz üretildi (mean ${meanDb} dB); yeniden denenecek`);
@@ -296,9 +296,9 @@ export async function POST(req: Request) {
       if (!rawNarrationText || imageBase64.length !== 2) {
         return NextResponse.json({ error: "mock modunda narrationText ve tam 2 imageBase64 gerekli" }, { status: 400 });
       }
-      const narrationText = capNarrationForDuration(rawNarrationText, { targetWords: 72, maxWords: 82 }).text;
+      const narrationText = capNarrationForDuration(rawNarrationText, { targetWords: 40, maxWords: 42 }).text;
       const t0 = Date.now();
-      const narration = await generateNarration(narrationText);
+      const narration = await generateMaleNarration(narrationText);
       const tNarration = Date.now() - t0;
       const images: RenderImage[] = imageBase64.map((value: string, i: number) => {
         if (typeof value !== "string") throw new Error(`Görsel ${i + 1} base64 değil`);
@@ -418,7 +418,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, produced: false, permanentlyBlocked: true, message: "Bu konu kalıcı olarak silindi; video üretimi engellendi." }, { status: 410 });
     }
     const rawNarration = extractNarration(script, `${content.title}. ${topic}`);
-    const narrationCap = capNarrationForDuration(rawNarration, { targetWords: 72, maxWords: 82 });
+    const narrationCap = capNarrationForDuration(rawNarration, { targetWords: 40, maxWords: 42 });
     let narrationText = narrationCap.text;
     const sections = parseDraftScript(script);
 
@@ -473,13 +473,13 @@ export async function POST(req: Request) {
 
     // Anlatı çok kısaysa (<32 kelime ≈ <15sn) üretim anında bir kez uzat:
     // modelin 40-48 kelime şartını tutmadığı eski taslaklar için de çalışır.
-    if (narrationCap.words > 0 && narrationCap.words < 60) {
+    if (narrationCap.words > 0 && narrationCap.words < 38) {
       try {
         const expanded = await retryStage(content.id, "Kısa anlatı uzatma", 12, async () => {
           const r = await generateWithFallback({
             system: [
               "Türkçe bir YouTube Shorts anlatı yazıcısısın.",
-              "Verilen kısa anlatıyı aynı konuda tutarak 68-80 kelimeye uzat: ilk cümledeki kancayı koru, konuya bağlı doğrulanabilir destek ekle ve sabit CTA ile bitir.",
+              "Verilen kısa anlatıyı aynı konuda tutarak 40-48 kelimeye uzat: ilk cümledeki kancayı koru, konuya bağlı doğrulanabilir destek ekle ve sabit CTA ile bitir.",
               "Sadece anlatı metnini döndür; başlık, süre bilgisi, köşeli açıklama, alıntı, yıldız işareti EKLEME.",
             ].join("\n"),
             history: [],
@@ -487,10 +487,10 @@ export async function POST(req: Request) {
           });
           const text = r.content.replace(/\s+/g, " ").trim();
           const words = text.split(/\s+/).filter(Boolean).length;
-          if (words < 60 || words > 90) throw new Error(`Uzatılan anlatı makul uzunlukta değil (${words} kelime)`);
+          if (words < 38 || words > 52) throw new Error(`Uzatılan anlatı makul uzunlukta değil (${words} kelime)`);
           return text;
         });
-        const recap = capNarrationForDuration(expanded);
+        const recap = capNarrationForDuration(expanded, { targetWords: 40, maxWords: 42 });
         const before = narrationCap.words;
         narrationText = recap.text;
         stages.script = { ...(stages.script as Record<string, unknown>), narrationWords: recap.words, expandedFromWords: before };
@@ -530,15 +530,15 @@ export async function POST(req: Request) {
 
     // 4) Seslendirme: daha önce kaydedildiyse tekrar üretme — AMA checkpoint sessizse
     // (veya 40sn kuralından önce üretilmiş uzun sürümse) bayat say, tazele.
-    let narration: Awaited<ReturnType<typeof generateNarration>> | null = null;
+    let narration: Awaited<ReturnType<typeof generateMaleNarration>> | null = null;
     let narrationMeanDb: number | null = null;
     let checkpointStaleReason = "";
     if (checkpoints.narrationAsset) {
       const meta = checkpoints.narrationAsset.meta && typeof checkpoints.narrationAsset.meta === "object"
         ? checkpoints.narrationAsset.meta as Record<string, unknown> : {};
       const savedSeconds = typeof meta.durationSeconds === "number" ? meta.durationSeconds : null;
-      if (savedSeconds !== null && savedSeconds > 41) {
-        checkpointStaleReason = `kaydedilmiş ses ${savedSeconds}sn (40sn üst sınırını aşıyor)`;
+      if (savedSeconds !== null && savedSeconds > 28.5) {
+        checkpointStaleReason = `kaydedilmiş ses ${savedSeconds}sn (30sn hedefini aşıyor)`;
       } else if (meta.ctaVersion !== 1) {
         checkpointStaleReason = "CTA'sız eski ses (marka motoru eşleşmesi için yeniden üretilecek)";
       } else {

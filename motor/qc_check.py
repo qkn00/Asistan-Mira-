@@ -57,7 +57,7 @@ def loudness(ff, path):
     return lufs, lra_v
 
 
-def check(path, lo=30.0, hi=60.0, quiet=False):
+def check(path, lo=20.0, hi=30.0, quiet=False):
     ff = ffmpeg_bin()
     fails = []
     dur, kinds, (w, h) = media_info(ff, path)
@@ -92,7 +92,7 @@ def selftest():
         subprocess.run([ff, "-y", "-hide_banner", "-loglevel", "error",
                         "-f", "lavfi", "-i", "testsrc2=size=270x480:rate=30",
                         "-f", "lavfi", "-i", "sine=frequency=210",
-                        "-t", "32", "-af", audio_filter,
+                        "-t", "25", "-af", audio_filter,
                         "-c:v", "libx264", "-preset", "ultrafast",
                         "-pix_fmt", "yuv420p", "-c:a", "aac", out], check=True)
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         sys.exit(selftest())
     if len(sys.argv) < 2:
         print(__doc__); sys.exit(2)
-    lo = float(sys.argv[2]) if len(sys.argv) > 2 else 30.0
-    hi = float(sys.argv[3]) if len(sys.argv) > 3 else 60.0
+    lo = float(sys.argv[2]) if len(sys.argv) > 2 else 20.0
+    hi = float(sys.argv[3]) if len(sys.argv) > 3 else 30.0
     ok, _, _ = check(sys.argv[1], lo, hi)
     sys.exit(0 if ok else 1)

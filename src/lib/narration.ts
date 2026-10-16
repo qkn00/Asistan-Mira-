@@ -136,10 +136,10 @@ function groupWords(words: EdgeWord[]): CaptionGroup[] {
   return groups;
 }
 
-export async function generateWithEdgeTts(text: string, rate = EDGE_TTS_RATE): Promise<{ audio: Uint8Array; captions: CaptionGroup[]; durationSeconds: number | null }> {
+export async function generateWithEdgeTts(text: string, rate = EDGE_TTS_RATE, voice = EDGE_TTS_VOICE): Promise<{ audio: Uint8Array; captions: CaptionGroup[]; durationSeconds: number | null }> {
   const { EdgeTTS } = await import("@andresaya/edge-tts");
   const tts = new EdgeTTS();
-  await tts.synthesize(text, EDGE_TTS_VOICE, {
+  await tts.synthesize(text, voice, {
     rate,
     outputFormat: "audio-24khz-96kbitrate-mono-mp3",
   });
@@ -256,6 +256,17 @@ function emotionAwareRate(options: NarrationOptions): string {
   const mode = options.solMode ?? "close";
   const rate = Math.max(-20, Math.min(20, Math.round(base + emotionDelta[emotion] + modeDelta[mode] + 5)));
   return `${rate >= 0 ? "+" : ""}${rate}%`;
+}
+
+/** YouTube Bilgi Dozu için sabit erkek anlatıcı. Kadın/Google yedek sesine düşmez; erkek TTS başarısızsa üretim hata verir. */
+export async function generateMaleNarration(rawText: string): Promise<NarrationResult> {
+  const text = stripForTts(rawText);
+  if (!text) throw new Error("Seslendirilecek metin boş");
+  if (text.length > 5000) throw new Error("Metin çok uzun");
+  const voice = process.env.YOUTUBE_NARRATION_EDGE_VOICE || "tr-TR-AhmetNeural";
+  const rate = process.env.YOUTUBE_NARRATION_EDGE_RATE || "+12%";
+  const edge = await generateWithEdgeTts(text, rate, voice);
+  return { audio: edge.audio, provider: `edge-tts-male:${voice}`, captions: edge.captions, durationSeconds: edge.durationSeconds };
 }
 
 export async function generateNarration(rawText: string, options: NarrationOptions = {}): Promise<NarrationResult> {

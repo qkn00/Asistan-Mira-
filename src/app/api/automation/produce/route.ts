@@ -6,7 +6,7 @@ import { contentAssets, contentItems, operations, tasks } from "@/db/schema";
 import { isPermanentlyDeletedTopic } from "@/lib/deleted-topics";
 import { like } from "drizzle-orm";
 import { generateWithFallback } from "@/lib/model-manager";
-import { generateNarration, type CaptionGroup } from "@/lib/narration";
+import { generateMaleNarration, type CaptionGroup } from "@/lib/narration";
 import { generateImage } from "@/lib/generate-image";
 import { renderShort, type RenderImage } from "@/lib/render-video";
 import { renderWithMotor, buildMotorDesign, MotorQCFailError, type MotorDesign } from "@/lib/motor-render";
@@ -187,7 +187,7 @@ async function measureMeanVolumeDb(mp3: Buffer | Uint8Array): Promise<number | n
 
 // TTS üret + ses gerçekten var mı diye doğrula; sessiz çıkarsa hata = retryStage yeniden dener.
 async function generateAudibleNarration(text: string) {
-  const narration = await generateNarration(text);
+  const narration = await generateMaleNarration(text);
   const meanDb = await measureMeanVolumeDb(narration.audio);
   if (meanDb !== null && meanDb < SILENT_THRESHOLD_DB) {
     throw new Error(`Seslendirme sessiz üretildi (mean ${meanDb} dB); yeniden denenecek`);
@@ -298,7 +298,7 @@ export async function POST(req: Request) {
       }
       const narrationText = capNarrationForDuration(rawNarrationText, { targetWords: 40, maxWords: 42 }).text;
       const t0 = Date.now();
-      const narration = await generateNarration(narrationText);
+      const narration = await generateMaleNarration(narrationText);
       const tNarration = Date.now() - t0;
       const images: RenderImage[] = imageBase64.map((value: string, i: number) => {
         if (typeof value !== "string") throw new Error(`Görsel ${i + 1} base64 değil`);

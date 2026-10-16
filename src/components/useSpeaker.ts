@@ -192,64 +192,13 @@ export function useSpeaker() {
         rafRef.current = requestAnimationFrame(syncAudio);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.warn(`Mira sunucu TTS kullanılamadı; tarayıcı sesi deneniyor [${stage}]:`, message);
+        console.error(`Mira ElevenLabs TTS failed [${stage}]:`, message);
         stopLoop();
-
-        // Keep Mira audible when the server TTS endpoint is not configured.
-        // This fallback uses the device's Turkish speech voice, not a cloned voice.
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.lang = "tr-TR";
-          const emotion = opts.emotion ?? "happy";
-          const rateFactor: Record<NonNullable<SpeakerOptions["emotion"]>, number> = {
-            happy: 1.02,
-            surprised: 1.08,
-            sad: 0.9,
-            playful: 1.04,
-            focused: 0.96,
-          };
-          const pitchDelta: Record<NonNullable<SpeakerOptions["emotion"]>, number> = {
-            happy: 0.03,
-            surprised: 0.12,
-            sad: -0.12,
-            playful: 0.08,
-            focused: -0.08,
-          };
-          utterance.rate = Math.min(2, Math.max(0.5, (opts.rate ?? 1) * rateFactor[emotion]));
-          utterance.pitch = Math.min(2, Math.max(0.5, (opts.pitch ?? 1.1) + pitchDelta[emotion]));
-          const voices = window.speechSynthesis.getVoices();
-          const turkishVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith("tr"));
-          if (turkishVoice) utterance.voice = turkishVoice;
-
-          utterance.onstart = () => {
-            setVoiceError(null);
-            setSpeaking(true);
-            setWordIndex(0);
-          };
-          utterance.onboundary = (event) => {
-            if (event.name === "word" && words.length) {
-              const spoken = cleanText.slice(0, event.charIndex).trim().split(/\\s+/).filter(Boolean).length;
-              setWordIndex(Math.min(words.length - 1, Math.max(0, spoken)));
-            }
-          };
-          utterance.onend = () => {
-            setSpeaking(false);
-            setWordIndex(-1);
-            opts.onEnd?.();
-          };
-          utterance.onerror = () => {
-            setVoiceError("Cihazın Türkçe konuşma sesi de kullanılamıyor.");
-            setSpeaking(false);
-            setWordIndex(-1);
-          };
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
-          return;
-        }
-
-        setVoiceError("Sunucu sesi ayarlanmamış ve bu cihazda tarayıcı konuşma desteği yok.");
+        setVoiceError(message);
         setSpeaking(false);
         setWordIndex(-1);
+        // Keep the conversation responsive, but never switch to the device's robot voice.
+        opts.onEnd?.();
       }
     },
     [stop, stopLoop],

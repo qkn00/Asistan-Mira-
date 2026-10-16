@@ -294,7 +294,7 @@ def stage_timing(vdir):
         c["rows"] = wrap_rows(meas, c["words"], f_cap)
 
     vo_dur = tight_dur
-    total = round(min(40.0, LEAD + vo_dur + 0.8), 2)  # Sabit şablon hedefi: 35–40 sn; 40 sn üst sınır.
+    total = round(LEAD + vo_dur + 0.8, 2)  # Sesin tamamı + kuyruk; uzun klip QC kapısında reddedilir, ses kesilmez.
     out = {"fps": FPS, "total": total, "vo_dur": round(vo_dur, 3),
            "vo_file": "vo_final.wav", "chunks": chunks, "last_end": last_end,
            "scene_switch": round(LEAD + vo_dur * 0.46, 2)}

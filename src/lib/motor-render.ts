@@ -203,7 +203,7 @@ export async function renderWithMotor(input: MotorRenderInput): Promise<MotorRen
     const videoPath = path.join(vd, "video.mp4");
     const st = await fs.stat(videoPath).catch(() => null);
     if (!st || st.size < 50_000 || render.code !== 0) {
-      throw new Error(`motor render başarısız (kod ${render.code}): ${(render.stderr || render.stdout).slice(-300)}`);
+      throw new Error(`motor render başarısız (kod ${render.code})\nSTDERR:\n${render.stderr.slice(-2500) || "(boş)"}\nSTDOUT:\n${render.stdout.slice(-2500) || "(boş)"}`);
     }
 
     const lo = Number(process.env.MIRA_MOTOR_QC_LO) > 0 ? Number(process.env.MIRA_MOTOR_QC_LO) : 35;

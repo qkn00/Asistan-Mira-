@@ -92,7 +92,7 @@ def selftest():
         subprocess.run([ff, "-y", "-hide_banner", "-loglevel", "error",
                         "-f", "lavfi", "-i", "testsrc2=size=270x480:rate=30",
                         "-f", "lavfi", "-i", "sine=frequency=210",
-                        "-t", "32", "-af", audio_filter,
+                        "-t", "25", "-af", audio_filter,
                         "-c:v", "libx264", "-preset", "ultrafast",
                         "-pix_fmt", "yuv420p", "-c:a", "aac", out], check=True)
 

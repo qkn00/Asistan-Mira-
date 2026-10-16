@@ -530,7 +530,7 @@ export async function POST(req: Request) {
 
     // 4) Seslendirme: daha önce kaydedildiyse tekrar üretme — AMA checkpoint sessizse
     // (veya 40sn kuralından önce üretilmiş uzun sürümse) bayat say, tazele.
-    let narration: Awaited<ReturnType<typeof generateNarration>> | null = null;
+    let narration: Awaited<ReturnType<typeof generateMaleNarration>> | null = null;
     let narrationMeanDb: number | null = null;
     let checkpointStaleReason = "";
     if (checkpoints.narrationAsset) {

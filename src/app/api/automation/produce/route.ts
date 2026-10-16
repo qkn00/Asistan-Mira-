@@ -537,8 +537,8 @@ export async function POST(req: Request) {
       const meta = checkpoints.narrationAsset.meta && typeof checkpoints.narrationAsset.meta === "object"
         ? checkpoints.narrationAsset.meta as Record<string, unknown> : {};
       const savedSeconds = typeof meta.durationSeconds === "number" ? meta.durationSeconds : null;
-      if (savedSeconds !== null && savedSeconds > 41) {
-        checkpointStaleReason = `kaydedilmiş ses ${savedSeconds}sn (40sn üst sınırını aşıyor)`;
+      if (savedSeconds !== null && savedSeconds > 28.5) {
+        checkpointStaleReason = `kaydedilmiş ses ${savedSeconds}sn (30sn hedefini aşıyor)`;
       } else if (meta.ctaVersion !== 1) {
         checkpointStaleReason = "CTA'sız eski ses (marka motoru eşleşmesi için yeniden üretilecek)";
       } else {

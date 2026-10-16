@@ -45,7 +45,7 @@ async function fetchJson(url: string, timeoutMs = 9000): Promise<unknown> {
     headers: { "User-Agent": UA, Accept: "application/json" },
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
 
@@ -115,7 +115,7 @@ function candidateRelevance(candidate: Candidate, topic: string, narration: stri
   const topicWords = topicTerms(topic);
   if (!topicWords.length) return 0;
   const titleWords = new Set(tokens(candidate.title));
-  const allWords = new Set(tokens(\`\${candidate.title} \${candidate.abstract ?? ""}\`));
+  const allWords = new Set(tokens(`${candidate.title} ${candidate.abstract ?? ""}`));
   const topicHits = topicWords.filter((word) => allWords.has(word)).length;
   const titleHits = topicWords.filter((word) => titleWords.has(word)).length;
   const narrationWords = tokens(narration.slice(0, 1200));
@@ -161,7 +161,7 @@ async function searchCrossref(query: string, cap: number): Promise<Candidate[]> 
   return (data.message?.items ?? []).flatMap((record) => {
     if (!record.DOI || !record.title?.[0]) return [];
     return [{
-      url: \`https://doi.org/\${record.DOI.trim()}\`,
+      url: `https://doi.org/${record.DOI.trim()}`,
       title: cleanText(record.title[0]),
       abstract: cleanText(record.abstract),
     }];
@@ -190,7 +190,7 @@ async function searchPubMed(query: string, cap: number): Promise<Candidate[]> {
     const record = summary.result?.[id];
     if (!record || Array.isArray(record) || !record.title) return [];
     return [{
-      url: \`https://pubmed.ncbi.nlm.nih.gov/\${id}/\`,
+      url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
       title: cleanText(record.title),
     }];
   });
@@ -204,7 +204,7 @@ function buildQueries(topic: string, narration: string): string[] {
     ?.replace(/\s+/g, " ")
     .trim()
     .slice(0, 100) ?? "";
-  const words = tokens(\`\${topic} \${narration.slice(0, 1400)}\`);
+  const words = tokens(`${topic} ${narration.slice(0, 1400)}`);
   const keywordQuery = words.slice(0, 8).join(" ");
   return uniq(
     [cleanTopic, [cleanTopic, firstSentence].filter(Boolean).join(" "), keywordQuery]
@@ -235,19 +235,19 @@ export async function searchAcademicSources(topic: string, narration: string, ca
       engines.openalex += openAlex.value.length;
       allCandidates.push(...openAlex.value);
     } else {
-      errors.push(\`openalex: \${openAlex.reason instanceof Error ? openAlex.reason.message.slice(0, 90) : String(openAlex.reason)}\`);
+      errors.push(`openalex: ${openAlex.reason instanceof Error ? openAlex.reason.message.slice(0, 90) : String(openAlex.reason)}`);
     }
     if (crossref.status === "fulfilled") {
       engines.crossref += crossref.value.length;
       allCandidates.push(...crossref.value);
     } else {
-      errors.push(\`crossref: \${crossref.reason instanceof Error ? crossref.reason.message.slice(0, 90) : String(crossref.reason)}\`);
+      errors.push(`crossref: ${crossref.reason instanceof Error ? crossref.reason.message.slice(0, 90) : String(crossref.reason)}`);
     }
     if (pubmed.status === "fulfilled") {
       engines.pubmed += pubmed.value.length;
       allCandidates.push(...pubmed.value);
     } else {
-      errors.push(\`pubmed: \${pubmed.reason instanceof Error ? pubmed.reason.message.slice(0, 90) : String(pubmed.reason)}\`);
+      errors.push(`pubmed: ${pubmed.reason instanceof Error ? pubmed.reason.message.slice(0, 90) : String(pubmed.reason)}`);
     }
 
     const relevantCount = uniq(

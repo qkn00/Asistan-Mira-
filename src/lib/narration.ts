@@ -263,22 +263,14 @@ export async function generateNarration(rawText: string, options: NarrationOptio
   if (!text) throw new Error("Seslendirilecek metin boş");
   if (text.length > 5000) throw new Error("Metin çok uzun");
 
-  if (process.env.MIRA_ALLOW_PAID_TTS === "true" && process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID) {
-    try {
-      const audio = await generateWithElevenLabs(text, options);
-      return { audio, provider: "elevenlabs", captions: [], durationSeconds: null };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("[Narration] ElevenLabs failed; Edge TTS fallback:", message);
-    }
+  // Mira için tek ses kaynağı: ElevenLabs. Başarısız olursa başka/robotik sese geçme.
+  if (process.env.MIRA_ALLOW_PAID_TTS !== "true") {
+    throw new Error("ElevenLabs kapalı: Railway Variables içinde MIRA_ALLOW_PAID_TTS=true olmalı");
   }
-  try {
-    const edge = await generateWithEdgeTts(text, emotionAwareRate(options));
-    return { audio: edge.audio, provider: "edge-tts", captions: edge.captions, durationSeconds: edge.durationSeconds };
-  } catch (edgeError) {
-    const message = edgeError instanceof Error ? edgeError.message : String(edgeError);
-    console.error("[Narration] Edge TTS failed; Google TTS son can simidi:", message);
+  if (!process.env.ELEVENLABS_API_KEY || !process.env.ELEVENLABS_VOICE_ID) {
+    throw new Error("ElevenLabs yapılandırması eksik: ELEVENLABS_API_KEY ve ELEVENLABS_VOICE_ID gerekli");
   }
-  const google = await generateWithGoogleTts(text);
-  return { audio: google, provider: "google-tts", captions: [], durationSeconds: null };
+
+  const audio = await generateWithElevenLabs(text, options);
+  return { audio, provider: "elevenlabs", captions: [], durationSeconds: null };
 }

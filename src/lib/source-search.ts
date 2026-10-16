@@ -100,9 +100,11 @@ const TOPIC_ALIASES: Array<[RegExp, string]> = [
 ];
 
 function expandTopicAliases(topic: string): string {
-  let expanded = topic;
-  for (const [pattern, alias] of TOPIC_ALIASES) expanded += " " + topic.replace(pattern, alias);
-  return expanded;
+  const aliases: string[] = [];
+  for (const [pattern, alias] of TOPIC_ALIASES) {
+    if (topic.replace(pattern, alias) !== topic) aliases.push(alias);
+  }
+  return [topic, ...aliases].join(" ");
 }
 
 function topicTerms(topic: string): string[] {

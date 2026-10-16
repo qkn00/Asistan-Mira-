@@ -841,10 +841,10 @@ export default function Assistant() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
               <div className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full ${voiceReady === true ? "bg-green-400" : voiceReady === false ? "bg-amber-400" : "bg-white/40"}`} />
-                <span>{voiceReady === true ? "ElevenLabs sesi bağlı" : voiceReady === false ? "Tarayıcı sesi aktif — ElevenLabs bekleniyor" : "Ses durumu kontrol ediliyor..."}</span>
+                <span>{voiceReady === true ? "ElevenLabs sesi bağlı" : voiceReady === false ? "ElevenLabs aktif değil — ayarlar kontrol edilmeli" : "ElevenLabs durumu kontrol ediliyor..."}</span>
               </div>
               {voiceReady === false && (
-                <p className="mt-1 text-white/50">Railway değişkenlerine ELEVENLABS_API_KEY ve ELEVENLABS_VOICE_ID eklendiğinde Mira otomatik olarak ElevenLabs sesine geçer.</p>
+                <p className="mt-1 text-white/50">Railway Variables içinde MIRA_ALLOW_PAID_TTS=true, ELEVENLABS_API_KEY ve ELEVENLABS_VOICE_ID tanımlı olmalı. ElevenLabs çalışmazsa Mira başka bir sese geçmez.</p>
               )}
             </div>
             <p className="text-xs text-white/50">

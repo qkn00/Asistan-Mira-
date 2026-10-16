@@ -264,7 +264,8 @@ export async function generateMaleNarration(rawText: string): Promise<NarrationR
   if (!text) throw new Error("Seslendirilecek metin boş");
   if (text.length > 5000) throw new Error("Metin çok uzun");
   const voice = process.env.YOUTUBE_NARRATION_EDGE_VOICE || "tr-TR-AhmetNeural";
-  const edge = await generateWithEdgeTts(text, "+2%", voice);
+  const rate = process.env.YOUTUBE_NARRATION_EDGE_RATE || "+12%";
+  const edge = await generateWithEdgeTts(text, rate, voice);
   return { audio: edge.audio, provider: `edge-tts-male:${voice}`, captions: edge.captions, durationSeconds: edge.durationSeconds };
 }
 

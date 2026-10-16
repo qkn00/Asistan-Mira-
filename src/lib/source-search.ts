@@ -87,8 +87,26 @@ function tokens(value: string): string[] {
   )];
 }
 
+const TOPIC_ALIASES: Array<[RegExp, string]> = [
+  [/kara\s*delik(?:ler|lerin|lere|lerde|lerden)?/gi, "black hole"],
+  [/olay\s*ufku/gi, "event horizon"],
+  [/kuantum\s*dolanıklık/gi, "quantum entanglement"],
+  [/kuantum\s*ışınlama/gi, "quantum teleportation"],
+  [/hipnik\s*jerk/gi, "hypnic jerk"],
+  [/kas\s*atonisi/gi, "muscle atonia"],
+  [/uyku\s*felci/gi, "sleep paralysis"],
+  [/rem\s*uykusu/gi, "REM sleep"],
+  [/güneş\s*kütlesi/gi, "solar mass"],
+];
+
+function expandTopicAliases(topic: string): string {
+  let expanded = topic;
+  for (const [pattern, alias] of TOPIC_ALIASES) expanded += " " + topic.replace(pattern, alias);
+  return expanded;
+}
+
 function topicTerms(topic: string): string[] {
-  return tokens(topic.replace(/https?:\/\/\S+/gi, " ").slice(0, 240));
+  return tokens(expandTopicAliases(topic.replace(/https?:\/\/\S+/gi, " ").slice(0, 240)));
 }
 
 function candidateRelevance(candidate: Candidate, topic: string, narration: string): number {
@@ -177,7 +195,7 @@ async function searchPubMed(query: string, cap: number): Promise<Candidate[]> {
 }
 
 function buildQueries(topic: string, narration: string): string[] {
-  const cleanTopic = topic.replace(/https?:\/\/\S+/gi, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  const cleanTopic = expandTopicAliases(topic.replace(/https?:\/\/\S+/gi, " ")).replace(/\s+/g, " ").trim().slice(0, 180);
   const firstSentence = narration
     .replace(/https?:\/\/\S+/gi, " ")
     .split(/[.!?؟\n]/)[0]

@@ -296,7 +296,7 @@ export async function POST(req: Request) {
       if (!rawNarrationText || imageBase64.length !== 2) {
         return NextResponse.json({ error: "mock modunda narrationText ve tam 2 imageBase64 gerekli" }, { status: 400 });
       }
-      const narrationText = capNarrationForDuration(rawNarrationText, { targetWords: 72, maxWords: 82 }).text;
+      const narrationText = capNarrationForDuration(rawNarrationText, { targetWords: 40, maxWords: 42 }).text;
       const t0 = Date.now();
       const narration = await generateNarration(narrationText);
       const tNarration = Date.now() - t0;
@@ -418,7 +418,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, produced: false, permanentlyBlocked: true, message: "Bu konu kalıcı olarak silindi; video üretimi engellendi." }, { status: 410 });
     }
     const rawNarration = extractNarration(script, `${content.title}. ${topic}`);
-    const narrationCap = capNarrationForDuration(rawNarration, { targetWords: 72, maxWords: 82 });
+    const narrationCap = capNarrationForDuration(rawNarration, { targetWords: 40, maxWords: 42 });
     let narrationText = narrationCap.text;
     const sections = parseDraftScript(script);
 
@@ -473,13 +473,13 @@ export async function POST(req: Request) {
 
     // Anlatı çok kısaysa (<32 kelime ≈ <15sn) üretim anında bir kez uzat:
     // modelin 40-48 kelime şartını tutmadığı eski taslaklar için de çalışır.
-    if (narrationCap.words > 0 && narrationCap.words < 60) {
+    if (narrationCap.words > 0 && narrationCap.words < 38) {
       try {
         const expanded = await retryStage(content.id, "Kısa anlatı uzatma", 12, async () => {
           const r = await generateWithFallback({
             system: [
               "Türkçe bir YouTube Shorts anlatı yazıcısısın.",
-              "Verilen kısa anlatıyı aynı konuda tutarak 68-80 kelimeye uzat: ilk cümledeki kancayı koru, konuya bağlı doğrulanabilir destek ekle ve sabit CTA ile bitir.",
+              "Verilen kısa anlatıyı aynı konuda tutarak 40-48 kelimeye uzat: ilk cümledeki kancayı koru, konuya bağlı doğrulanabilir destek ekle ve sabit CTA ile bitir.",
               "Sadece anlatı metnini döndür; başlık, süre bilgisi, köşeli açıklama, alıntı, yıldız işareti EKLEME.",
             ].join("\n"),
             history: [],
@@ -487,10 +487,10 @@ export async function POST(req: Request) {
           });
           const text = r.content.replace(/\s+/g, " ").trim();
           const words = text.split(/\s+/).filter(Boolean).length;
-          if (words < 60 || words > 90) throw new Error(`Uzatılan anlatı makul uzunlukta değil (${words} kelime)`);
+          if (words < 38 || words > 52) throw new Error(`Uzatılan anlatı makul uzunlukta değil (${words} kelime)`);
           return text;
         });
-        const recap = capNarrationForDuration(expanded);
+        const recap = capNarrationForDuration(expanded, { targetWords: 40, maxWords: 42 });
         const before = narrationCap.words;
         narrationText = recap.text;
         stages.script = { ...(stages.script as Record<string, unknown>), narrationWords: recap.words, expandedFromWords: before };

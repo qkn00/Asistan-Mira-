@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { isPermanentlyDeletedTopic } from "@/lib/deleted-topics";
 import { isYoutubeScheduleCancellation, isYoutubeScheduleConfirmation } from "@/lib/youtube-schedule-approval";
+import { readDriveVideoMetadata } from "@/lib/drive-video-metadata";
 
 const PRIVATE_MODE_COOKIE = 'mira_private_mode';
 const ENTRY_COOKIE = 'mira_entry';
@@ -1080,14 +1081,27 @@ export async function POST(req: Request) {
           let parsed: { videos?: Array<{ fileName?: string; title?: string; description?: string; tags?: string[]; comment?: string }> } = {};
           try { parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {}; } catch {}
           const candidates = Array.isArray(parsed.videos) ? parsed.videos : [];
-          const validFiles = new Set([...(driveData.videos?.shorts || []), ...(driveData.videos?.longVideos || [])].map((file) => file.name));
-          const usable = candidates.filter((item): item is { fileName: string; title: string; description: string; tags: string[]; comment: string } =>
-            typeof item.fileName === "string" && validFiles.has(item.fileName) &&
-            typeof item.title === "string" && Boolean(item.title.trim()) &&
-            typeof item.description === "string" &&
-            Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string") &&
-            typeof item.comment === "string"
-          ).slice(0, 2);
+          // The model may choose filenames, but metadata must come from the exact VIDEO N block in baslik.md.
+          // Do not accept model-generated titles/descriptions/tags as proof of a file-to-metadata match.
+          const validFiles = new Set((driveData.videos?.shorts || []).map((file) => file.name));
+          const usable = candidates.flatMap((item) => {
+            if (typeof item.fileName !== "string" || !validFiles.has(item.fileName)) return [];
+            const numberMatch = item.fileName.match(/^video_(\\d+)\\.mp4$/iu);
+            if (!numberMatch || !driveData.documentText) return [];
+            try {
+              const metadata = readDriveVideoMetadata(driveData.documentText, Number(numberMatch[1]));
+              if (!metadata.title.trim() || !metadata.description.trim() || metadata.tags.length === 0) return [];
+              return [{
+                fileName: item.fileName,
+                title: metadata.title,
+                description: metadata.description,
+                tags: metadata.tags,
+                comment: metadata.pinnedComment,
+              }];
+            } catch {
+              return [];
+            }
+          }).slice(0, 2);
           if (usable.length !== 2 || usable[0].fileName === usable[1].fileName) {
             return NextResponse.json({
               reply: "Kanal ve Drive analizini yaptım ancak iki videonun başlık/açıklama/yorum eşleşmesini güvenilir biçimde doğrulayamadım. Güvenlik için hiçbir video yüklemedim.\n\n" + (selection.reply || ""),

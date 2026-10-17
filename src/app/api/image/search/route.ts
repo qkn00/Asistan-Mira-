@@ -15,7 +15,7 @@ type PixabayHit = {
 
 export async function POST(req: Request) {
   try {
-    const cookies = (req.headers.get("cookie") ?? "").split(";").map((part) => part.trim());
+    const cookies = req.headers.get("cookie") ?? "";
     if (!isMiraSessionCookie(cookies)) {
       return NextResponse.json({ error: "Önce Mira'ya giriş yapmalısın." }, { status: 401 });
     }

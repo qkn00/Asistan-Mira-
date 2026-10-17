@@ -1,6 +1,11 @@
 import { isMiraSessionCookie } from "@/lib/mira-auth";
 import { NextResponse } from "next/server";
 import { downloadDriveFile, listDriveFolderFiles } from "@/lib/google-drive";
+import { execFile } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import ffmpegPath from "ffmpeg-static";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,6 +19,64 @@ function isVideoName(name: string) {
   return /^(?:video|uzun_video)_\d+\.mp4$/i.test(name);
 }
 
+type VideoInspection = {
+  ok: boolean;
+  durationSeconds: number | null;
+  width: number | null;
+  height: number | null;
+  fps: number | null;
+  hasAudio: boolean | null;
+  shortsTargetMatch: boolean;
+  error?: string;
+};
+
+async function inspectVideo(data: Buffer, name: string): Promise<VideoInspection> {
+  if (!ffmpegPath) {
+    return { ok: false, durationSeconds: null, width: null, height: null, fps: null, hasAudio: null, shortsTargetMatch: false, error: "ffmpeg-static ikilisi sunucuda bulunamadı." };
+  }
+  let dir = "";
+  try {
+    dir = await mkdtemp(path.join(os.tmpdir(), "mira-video-check-"));
+    const filePath = path.join(dir, name.replace(/[^a-zA-Z0-9._-]/g, "_") || "video.mp4");
+    await writeFile(filePath, data);
+    const binaryPath = ffmpegPath;
+    if (!binaryPath) throw new Error("ffmpeg-static ikilisi sunucuda bulunamadı.");
+    const stderr = await new Promise<string>((resolve, reject) => {
+      execFile(binaryPath, ["-hide_banner", "-i", filePath], { timeout: 20000, encoding: "utf8" }, (error, _stdout, output) => {
+        // ffmpeg exits non-zero when no output target is supplied; input metadata is still printed.
+        if (error && !output) reject(error);
+        else resolve(String(output || ""));
+      });
+    });
+    const durationMatch = stderr.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/i);
+    const videoLine = stderr.split(/\r?\n/).find((line) => /Video:/i.test(line)) || "";
+    const dimensionsMatch = videoLine.match(/(?:^|\s)(\d{2,5})x(\d{2,5})(?:\s|,|$)/);
+    const fpsMatch = videoLine.match(/(\d+(?:\.\d+)?)\s*fps\b/i);
+    const audio = /Audio:/i.test(stderr);
+    const durationSeconds = durationMatch
+      ? Number(durationMatch[1]) * 3600 + Number(durationMatch[2]) * 60 + Number(durationMatch[3])
+      : null;
+    const width = dimensionsMatch ? Number(dimensionsMatch[1]) : null;
+    const height = dimensionsMatch ? Number(dimensionsMatch[2]) : null;
+    const fps = fpsMatch ? Number(fpsMatch[1]) : null;
+    const ok = durationSeconds !== null && Number.isFinite(durationSeconds) && width !== null && height !== null;
+    return {
+      ok,
+      durationSeconds,
+      width,
+      height,
+      fps,
+      hasAudio: audio,
+      shortsTargetMatch: ok && durationSeconds! >= 20 && durationSeconds! <= 30 && width === 1080 && height === 1920 && fps !== null && Math.abs(fps - 30) < 0.1,
+      error: ok ? undefined : stderr.slice(-1200) || "FFmpeg video akışı için süre/çözünürlük bilgisi çıkaramadı.",
+    };
+  } catch (error) {
+    return { ok: false, durationSeconds: null, width: null, height: null, fps: null, hasAudio: null, shortsTargetMatch: false, error: (error instanceof Error ? error.message : "FFmpeg analiz hatası").slice(0, 500) };
+  } finally {
+    if (dir) await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 async function testFile(file: Awaited<ReturnType<typeof listDriveFolderFiles>>[number]) {
   try {
     const expectedBytes = Number(file.size || 0);
@@ -22,16 +85,19 @@ async function testFile(file: Awaited<ReturnType<typeof listDriveFolderFiles>>[n
     const brand = actualBytes >= 8 ? downloaded.data.subarray(4, 8).toString("ascii") : "";
     const mp4SignatureValid = actualBytes >= 12 && brand === "ftyp";
     const exactSizeMatch = expectedBytes > 0 && actualBytes === expectedBytes;
-    const passed = actualBytes > 0 && exactSizeMatch && mp4SignatureValid && downloaded.mimeType === "video/mp4";
+    const technical = await inspectVideo(downloaded.data, downloaded.name);
+    const passed = actualBytes > 0 && exactSizeMatch && mp4SignatureValid && downloaded.mimeType === "video/mp4" && technical.ok;
     return {
       ok: passed,
+      technical,
+      shortsTargetMatch: technical.shortsTargetMatch,
       name: file.name,
       expectedBytes,
       actualBytes,
       exactSizeMatch,
       mimeType: downloaded.mimeType,
       mp4SignatureValid,
-      error: passed ? undefined : "Boyut, MIME türü veya MP4 imzası doğrulanamadı.",
+      error: passed ? undefined : (!technical.ok ? `FFmpeg teknik analizi başarısız: ${technical.error || "video bilgileri okunamadı"}` : "Boyut, MIME türü veya MP4 imzası doğrulanamadı."),
     };
   } catch (error) {
     return {
@@ -42,6 +108,8 @@ async function testFile(file: Awaited<ReturnType<typeof listDriveFolderFiles>>[n
       exactSizeMatch: false,
       mimeType: file.mimeType,
       mp4SignatureValid: false,
+      technical: { ok: false, durationSeconds: null, width: null, height: null, fps: null, hasAudio: null, shortsTargetMatch: false, error: "Teknik analiz çalıştırılamadı." },
+      shortsTargetMatch: false,
       error: (error instanceof Error ? error.message : "Bilinmeyen Drive hatası").slice(0, 300),
     };
   }
@@ -79,8 +147,8 @@ export async function GET(req: Request) {
         failed,
         results,
         message: failed === 0
-          ? "Drive klasöründeki tüm MP4 videolar indirildi ve doğrulandı."
-          : "Bazı videolar doğrulanamadı. Hatalı dosyalar results bölümünde listeleniyor.",
+          ? "Drive klasöründeki tüm MP4 videolar indirildi; dosya bütünlüğü ve teknik video bilgileri doğrulandı."
+          : "Bazı videoların dosya bütünlüğü veya teknik bilgileri doğrulanamadı. Ayrıntılar results bölümünde.",
       }, { status: failed === 0 ? 200 : 422 });
     }
 
@@ -98,8 +166,8 @@ export async function GET(req: Request) {
       test: `drive-download-${requestedName}`,
       downloadHttpStatus: result.ok ? 200 : 422,
       message: result.ok
-        ? "Drive dosyası indirildi; boyut, MIME türü ve MP4 imzası doğrulandı."
-        : result.error,
+        ? "Drive dosyası indirildi; boyut, MIME, MP4 imzası ve video teknik bilgileri doğrulandı."
+        : result.error || result.technical?.error,
     }, { status: result.ok ? 200 : 422 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Bilinmeyen Drive hatası";

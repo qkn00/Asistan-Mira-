@@ -134,6 +134,93 @@ export async function POST(req: Request) {
       return NextResponse.json({ reply: 'İptal edildi. Hafıza saklı tutuldu.', emotion: 'focused' });
     }
 
+    // YouTube scheduling is a two-step action: persist an exact preview, then require a separate explicit confirmation.
+    const scheduleConfirmation = /^(?:planı onayla|plani onayla|yüklemeyi onayla|yuklemeyi onayla|onaylıyorum|onayliyorum)$/iu.test(message.trim());
+    const scheduleRejection = /^(?:planı iptal et|plani iptal et|iptal et|vazgeç|vazgec)$/iu.test(message.trim());
+    if (scheduleConfirmation || scheduleRejection) {
+      try {
+        const [pendingSchedule] = await db.select().from(operations)
+          .where(eq(operations.action, "youtube_drive_schedule_pending"))
+          .orderBy(desc(operations.id)).limit(1);
+        if (pendingSchedule?.status === "pending") {
+          const ageMs = Date.now() - new Date(pendingSchedule.createdAt).getTime();
+          if (!Number.isFinite(ageMs) || ageMs > 30 * 60 * 1000) {
+            await db.update(operations).set({
+              status: "cancelled",
+              summary: "Plan zaman aşımına uğradı; hiçbir video yüklenmedi.",
+            }).where(eq(operations.id, pendingSchedule.id));
+            return NextResponse.json({ reply: "Bu yayın planının onay süresi dolmuş. Hiçbir video yüklenmedi; güncel bir plan oluşturmak gerekiyor.", emotion: "focused" });
+          }
+          if (scheduleRejection) {
+            await db.update(operations).set({
+              status: "cancelled",
+              summary: "Kullanıcı YouTube yayın planını iptal etti; hiçbir video yüklenmedi.",
+            }).where(eq(operations.id, pendingSchedule.id));
+            return NextResponse.json({ reply: "Plan iptal edildi. Hiçbir video YouTube'a yüklenmedi.", emotion: "focused" });
+          }
+          const metadata = pendingSchedule.metadata && typeof pendingSchedule.metadata === "object"
+            ? pendingSchedule.metadata as { uploads?: Array<{ fileName?: string; title?: string; description?: string; tags?: string[]; comment?: string; publishAt?: string }> }
+            : {};
+          const uploads = Array.isArray(metadata.uploads) ? metadata.uploads : [];
+          if (uploads.length !== 2 || uploads.some((item) =>
+            typeof item.fileName !== "string" || typeof item.title !== "string" ||
+            typeof item.description !== "string" || !Array.isArray(item.tags) ||
+            typeof item.publishAt !== "string" || !Number.isFinite(new Date(item.publishAt).getTime()) ||
+            new Date(item.publishAt).getTime() <= Date.now() + 60_000
+          )) {
+            await db.update(operations).set({ status: "failed", summary: "Bekleyen YouTube planı geçersiz; hiçbir video yüklenmedi." }).where(eq(operations.id, pendingSchedule.id));
+            return NextResponse.json({ reply: "Bekleyen planın bilgileri geçersiz veya yayın saatleri geçmiş. Güvenlik için hiçbir video yüklenmedi; yeni plan hazırlanmalı.", emotion: "focused" }, { status: 409 });
+          }
+
+          const origin = selfOrigin();
+          const uploadResults: Array<{ fileName: string; ok: boolean; url?: string; error?: string; publishAt: string }> = [];
+          for (const item of uploads) {
+            try {
+              const response = await fetchWithTimeoutMs(`${origin}/api/youtube/drive-upload`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", cookie: cookieHeader },
+                body: JSON.stringify({ confirm: true, ...item }),
+              }, VIDEO_TIMEOUT_MS);
+              const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+              uploadResults.push({
+                fileName: item.fileName!,
+                ok: response.ok && data.uploaded === true && data.scheduled === true,
+                url: typeof data.url === "string" ? data.url : undefined,
+                error: typeof data.error === "string" ? data.error : undefined,
+                publishAt: item.publishAt!,
+              });
+            } catch (error) {
+              uploadResults.push({
+                fileName: item.fileName!,
+                ok: false,
+                error: error instanceof Error ? error.message.slice(0, 250) : "İstek sonucu doğrulanamadı",
+                publishAt: item.publishAt!,
+              });
+            }
+          }
+          const successCount = uploadResults.filter((item) => item.ok).length;
+          await db.update(operations).set({
+            status: successCount === uploadResults.length ? "success" : successCount > 0 ? "partial" : "failed",
+            summary: `YouTube planı onaylandı; ${successCount}/${uploadResults.length} video doğrulanmış biçimde planlandı.`,
+            metadata: { ...metadata, results: uploadResults, completedAt: new Date().toISOString() },
+          }).where(eq(operations.id, pendingSchedule.id));
+          return NextResponse.json({
+            reply: [
+              `Onaylanan plan işlendi: ${successCount}/${uploadResults.length} video YouTube tarafından kabul edilip planlandı.`,
+              ...uploadResults.map((item, index) =>
+                `${index + 1}. ${item.fileName}: ${item.ok ? "PLANLANDI" : "BAŞARISIZ"} — ${item.ok ? item.url : item.error || "YouTube sonucu doğrulanamadı"} — Türkiye saati: ${new Date(item.publishAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}`
+              ),
+              "Başarılı sayılan kayıtlar YouTube API yanıtıyla doğrulandı. Bu, videoların şu anda herkese açık olduğu anlamına gelmez.",
+            ].join("\n"),
+            emotion: "focused",
+          }, { status: successCount === uploadResults.length ? 200 : 502 });
+        }
+      } catch (scheduleError) {
+        console.error("[Chat] YouTube schedule approval failed:", scheduleError);
+        return NextResponse.json({ reply: "Bekleyen yayın planı okunamadı veya güncellenemedi. Hiçbir yeni yükleme başlatılmadı.", emotion: "focused" }, { status: 500 });
+      }
+    }
+
     const memoryCommand = parseMemoryCommand(message);
     if (memoryCommand.type === 'save') {
       if (memoryCommand.hasSensitiveData) return NextResponse.json({ reply: generateSaveApprovalMessage(memoryCommand), emotion: 'focused' });
@@ -1007,34 +1094,34 @@ export async function POST(req: Request) {
             });
           }
 
-          const uploadResults: Array<Record<string, unknown>> = [];
-          for (let i = 0; i < 2; i++) {
-            const candidate = usable[i];
-            const response = await fetchWithTimeoutMs(`${origin}/api/youtube/drive-upload`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", cookie: cookieHeader },
-              body: JSON.stringify({
-                confirm: true,
-                fileName: candidate.fileName,
-                title: candidate.title,
-                description: candidate.description,
-                tags: candidate.tags,
-                comment: candidate.comment,
-                publishAt: slots[i],
-              }),
-            }, VIDEO_TIMEOUT_MS);
-            const data = await response.json().catch(() => ({})) as Record<string, unknown>;
-            uploadResults.push({ fileName: candidate.fileName, httpStatus: response.status, ...data });
-          }
-          const report = uploadResults.map((result, index) =>
-            `${index + 1}. ${String(result.fileName || "dosya")}: ${result.uploaded === true && result.scheduled === true ? "PLANLANDI" : "BAŞARISIZ"} — ${String(result.url || result.error || "sonuç doğrulanamadı")} — yayın: ${slots[index]}`
+          const plan = {
+            slots,
+            uploads: usable.map((candidate, index) => ({
+              fileName: candidate.fileName,
+              title: candidate.title.trim(),
+              description: candidate.description,
+              tags: candidate.tags,
+              comment: candidate.comment,
+              publishAt: slots[index],
+            })),
+          };
+          const [pendingPlan] = await db.insert(operations).values({
+            action: "youtube_drive_schedule_pending",
+            status: "pending",
+            summary: "Kullanıcı onayı bekleniyor: iki Drive videosunun YouTube'da planlanması",
+            platform: "youtube",
+            metadata: plan,
+          }).returning({ id: operations.id });
+          const planLines = plan.uploads.map((item, index) =>
+            `${index + 1}. ${item.fileName} — ${item.title} — Türkiye saati: ${new Date(item.publishAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}`
           );
           return NextResponse.json({
             reply: [
-              "YouTube kanal analizi tamamlandı.",
-              ...report,
-              "Yorum sabitleme YouTube Data API üzerinden yapılamıyor; hiçbir yorumun sabitlendiğini iddia etmiyorum.",
-              "Herhangi bir video hemen herkese açık yayımlanmadı; yükleme planlı ve gizli olarak yapıldı.",
+              "İki video için planı hazırladım; henüz YouTube'a hiçbir dosya yüklenmedi.",
+              ...planLines,
+              "Başlık, açıklama ve etiketler Drive'daki baslik.md içeriğine göre seçildi. Yükleme öncesinde dosya ve mükerrer kayıt kontrolleri yeniden yapılacak.",
+              "Bu planı uygulamak için yeni mesaj olarak **Planı onayla** yaz. İptal etmek için **Planı iptal et** yaz.",
+              `Onay kaydı: #${pendingPlan.id}. Plan 30 dakika içinde onaylanmazsa geçersiz sayılacak.`,
             ].join("\n"),
             emotion: "focused",
           });

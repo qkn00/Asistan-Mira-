@@ -1,3 +1,4 @@
+import { isMiraSessionCookie } from "@/lib/mira-auth";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -16,7 +17,7 @@ type PixabayHit = {
 export async function POST(req: Request) {
   try {
     const cookies = (req.headers.get("cookie") ?? "").split(";").map((part) => part.trim());
-    if (!cookies.includes(`${ENTRY_COOKIE}=1`)) {
+    if (!isMiraSessionCookie(cookies)) {
       return NextResponse.json({ error: "Önce Mira'ya giriş yapmalısın." }, { status: 401 });
     }
 

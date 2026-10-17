@@ -811,14 +811,14 @@ export async function POST(req: Request) {
         ].join("\n");
 
         const wantsTwoScheduledUploads =
-          /(?:kanal|youtube|drive).{0,100}(?:yükle|yüklesin|planla|programla).{0,80}(?:iki|2)\\s*(?:tane|adet)?|(?:iki|2)\\s*(?:tane|adet).{0,100}(?:yükle|yüklesin|planla|programla)/iu.test(message);
+          /(?:kanal|youtube|drive).{0,100}(?:yükle|yüklesin|planla|programla).{0,80}(?:iki|2)\s*(?:tane|adet)?|(?:iki|2)\s*(?:tane|adet).{0,100}(?:yükle|yüklesin|planla|programla)/iu.test(message);
         if (wantsTwoScheduledUploads) {
-          const scheduleText = [...history.map((item) => item.content), message].join("\\n");
+          const scheduleText = [...history.map((item) => item.content), message].join("\n");
           const slots = requestedScheduleSlots(scheduleText);
           if (!slots) {
-            const auditResult = await think(message, history, "", "flirty", `${memoryContext}\\n\\n${auditContext}`, "", privateMode);
+            const auditResult = await think(message, history, "", "flirty", `${memoryContext}\n\n${auditContext}`, "", privateMode);
             return NextResponse.json({
-              reply: `${auditResult.reply || "Kanal analizi tamamlandı."}\\n\\nYükleme başlatmadım: konuşmada gelecekteki iki yayın saati açıkça bulunamadı. Hiçbir video yüklenmedi.`,
+              reply: `${auditResult.reply || "Kanal analizi tamamlandı."}\n\nYükleme başlatmadım: konuşmada gelecekteki iki yayın saati açıkça bulunamadı. Hiçbir video yüklenmedi.`,
               emotion: auditResult.emotion || "focused",
             });
           }
@@ -828,25 +828,25 @@ export async function POST(req: Request) {
             "Gerçek YouTube kanalındaki mevcut videolar ile Google Drive katalogunu karşılaştır.",
             "Kanalda bulunmayan iki Shorts dosyasını seç. Öncelik video_11.mp4, sonra video_12.mp4; bunlar zaten yüklenmişse sıradaki yüklenmemiş dosyaları seç.",
             "Yalnızca baslik.md içeriğinden doğrulayabildiğin başlık, açıklama, etiket ve yorum bilgilerini kullan. Bir dosyanın metaverisi belirsizse onu seçme. Aynı videoyu tekrar yükleme.",
-            "Şema: {\\"videos\\":[{\\"fileName\\":\\"video_11.mp4\\",\\"title\\":\\"...\\",\\"description\\":\\"...\\",\\"tags\\":[\\"...\\"],\\"comment\\":\\"...\\"},{...}]}. Tam olarak iki farklı dosya olmalı; aksi durumda {\\"videos\\":[]} döndür.",
+            "Şema: {\"videos\":[{\"fileName\":\"video_11.mp4\",\"title\":\"...\",\"description\":\"...\",\"tags\":[\"...\"],\"comment\":\"...\"},{...}]}. Tam olarak iki farklı dosya olmalı; aksi durumda {\"videos\":[]} döndür.",
             auditContext,
-          ].join("\\n");
+          ].join("\n");
           const selection = await think(selectionPrompt, history, "", "flirty", memoryContext, "", privateMode);
-          const jsonMatch = (selection.reply || "").match(/\\{[\\s\\S]*\\}/);
+          const jsonMatch = (selection.reply || "").match(/\{[\s\S]*\}/);
           let parsed: { videos?: Array<{ fileName?: string; title?: string; description?: string; tags?: string[]; comment?: string }> } = {};
           try { parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {}; } catch {}
           const candidates = Array.isArray(parsed.videos) ? parsed.videos : [];
           const validFiles = new Set([...(driveData.videos?.shorts || []), ...(driveData.videos?.longVideos || [])].map((file) => file.name));
-          const usable = candidates.filter((item) =>
+          const usable = candidates.filter((item): item is { fileName: string; title: string; description: string; tags: string[]; comment: string } =>
             typeof item.fileName === "string" && validFiles.has(item.fileName) &&
-            typeof item.title === "string" && item.title.trim() &&
+            typeof item.title === "string" && Boolean(item.title.trim()) &&
             typeof item.description === "string" &&
             Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string") &&
             typeof item.comment === "string"
           ).slice(0, 2);
           if (usable.length !== 2 || usable[0].fileName === usable[1].fileName) {
             return NextResponse.json({
-              reply: "Kanal ve Drive analizini yaptım ancak iki videonun başlık/açıklama/yorum eşleşmesini güvenilir biçimde doğrulayamadım. Güvenlik için hiçbir video yüklemedim.\\n\\n" + (selection.reply || ""),
+              reply: "Kanal ve Drive analizini yaptım ancak iki videonun başlık/açıklama/yorum eşleşmesini güvenilir biçimde doğrulayamadım. Güvenlik için hiçbir video yüklemedim.\n\n" + (selection.reply || ""),
               emotion: "focused",
             });
           }
@@ -879,12 +879,12 @@ export async function POST(req: Request) {
               ...report,
               "Yorum sabitleme YouTube Data API üzerinden yapılamıyor; hiçbir yorumun sabitlendiğini iddia etmiyorum.",
               "Herhangi bir video hemen herkese açık yayımlanmadı; yükleme planlı ve gizli olarak yapıldı.",
-            ].join("\\n"),
+            ].join("\n"),
             emotion: "focused",
           });
         }
 
-        const auditResult = await think(message, history, "", "flirty", `${memoryContext}\\n\\n${auditContext}`, "", privateMode);
+        const auditResult = await think(message, history, "", "flirty", `${memoryContext}\n\n${auditContext}`, "", privateMode);
         return NextResponse.json({
           reply: auditResult.reply || "Kanal verilerini aldım ancak güvenilir bir analiz oluşturamadım.",
           emotion: auditResult.emotion || "focused",

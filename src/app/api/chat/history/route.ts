@@ -4,7 +4,6 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { messages } from "@/db/schema";
 
-const ENTRY_COOKIE = "mira_entry";
 
 export async function GET(req: Request) {
   const authenticated = isMiraSessionCookie(req.headers.get("cookie"));

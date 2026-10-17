@@ -32,7 +32,7 @@ export function readDriveVideoMetadata(markdown: string, videoNumber: number): D
   };
   const title = read(["BAŞLIK", "BASLIK"]);
   const description = read(["AÇIKLAMA", "ACIKLAMA"]);
-  const tags = read(["ETİKETLER", "ETIKETLER"]).split(/[,\n]/).map((tag) => tag.replace(/^#/, "").trim()).filter(Boolean).slice(0, 30);
+  const tags = read(["ETİKETLER", "ETIKETLER"]).split(/[,\n]/).map((tag) => tag.trim().replace(/^#/, "").trim()).filter(Boolean).slice(0, 30);
   const pinnedComment = read(["SABİT YORUM", "SABIT YORUM"]);
   if (!title) throw new Error(`VIDEO ${videoNumber} için BAŞLIK alanı baslik.md içinde bulunamadı.`);
   return { title: title.replace(/^["'`]|["'`]$/g, "").slice(0, 100), description, tags, pinnedComment };

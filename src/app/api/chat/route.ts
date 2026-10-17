@@ -748,6 +748,61 @@ export async function POST(req: Request) {
       console.error("Mira context load failed:", memoryError);
     }
 
+    // Read-only channel + Drive analysis: compare the actual YouTube uploads with real Drive files.
+    const asksForChannelAudit =
+      /(?:kanal.{0,60}(?:analiz|incele|durum|video|yüklen)|(?:önce|daha önce|zaten).{0,40}(?:yüklenmiş|yayınlanmış)|(?:yüklenmemiş|tekrar yükle|çakışan video|youtube videoları))/iu.test(message);
+
+    if (asksForChannelAudit) {
+      try {
+        const origin = selfOrigin();
+        const [youtubeResponse, driveResponse] = await Promise.all([
+          fetchWithTimeoutMs(`${origin}/api/youtube/videos?limit=200`, { headers: { cookie: cookieHeader } }, 30000),
+          fetchWithTimeoutMs(`${origin}/api/drive/catalog`, { headers: { cookie: cookieHeader } }, 30000),
+        ]);
+        const youtubeData = await youtubeResponse.json().catch(() => ({})) as {
+          ok?: boolean; error?: string; channelTitle?: string; channelId?: string; count?: number;
+          videos?: Array<{ videoId: string; title: string; publishedAt: string | null; privacyStatus: string | null; url: string }>;
+        };
+        const driveData = await driveResponse.json().catch(() => ({})) as {
+          ok?: boolean; error?: string; document?: { name?: string; characters?: number };
+          documentText?: string; titleCandidates?: Array<{ line: number; kind: string; title: string }>;
+          videos?: { shorts?: Array<{ name: string; id?: string }>; longVideos?: Array<{ name: string; id?: string }> };
+        };
+        if (!youtubeResponse.ok || !youtubeData.ok) {
+          return NextResponse.json({
+            reply: `YouTube kanal analizi için gerçek video listesi alınamadı: ${youtubeData.error || `HTTP ${youtubeResponse.status}`}. Kanalın incelendiğini varsaymayacağım.`,
+            emotion: "focused",
+          }, { status: youtubeResponse.status >= 400 ? youtubeResponse.status : 502 });
+        }
+
+        const auditContext = [
+          "YOUTUBE KANAL DENETİMİ — bu istekte kanalın gerçek yüklemeler listesi YouTube API'sinden okundu.",
+          "Yalnızca aşağıdaki canlı verileri ve Drive kataloğunu kullan. Başlıklar benziyor diye kesin eşleşme iddia etme; eşleşmeleri 'kesin', 'olası' veya 'belirsiz' diye ayır.",
+          `Kanal: ${youtubeData.channelTitle || "bilinmiyor"}; kanal ID: ${youtubeData.channelId || "bilinmiyor"}; listelenen video: ${youtubeData.count ?? youtubeData.videos?.length ?? 0}`,
+          "YouTube'da zaten bulunan videolar (kimlik, başlık, tarih ve gizlilik):",
+          JSON.stringify(youtubeData.videos || []),
+          "Drive kataloğu:",
+          driveData.ok
+            ? JSON.stringify({ document: driveData.document, shorts: driveData.videos?.shorts, longVideos: driveData.videos?.longVideos, titleCandidates: driveData.titleCandidates, documentText: driveData.documentText })
+            : `Drive kataloğu okunamadı: ${driveData.error || `HTTP ${driveResponse.status}`}`,
+          "GÜVENLİK: Bu denetim salt okunurdur. Hiçbir video yükleme, planlama, yorum ekleme/sabitleme veya mevcut yayın takvimini değiştirme. Kullanıcı istemedikçe bu denetim yalnızca rapor üretir.",
+        ].join("\\n");
+
+        const auditResult = await think(message, history, "", "focused", `${memoryContext}\\n\\n${auditContext}`, "", privateMode);
+        return NextResponse.json({
+          reply: auditResult.reply || "Kanal verilerini aldım ancak güvenilir bir analiz oluşturamadım.",
+          emotion: auditResult.emotion || "focused",
+        });
+      } catch (auditError) {
+        const reason = auditError instanceof Error ? auditError.message : String(auditError);
+        console.error("[Chat] YouTube channel audit failed:", reason);
+        return NextResponse.json({
+          reply: `Kanal analizi tamamlanamadı: ${reason.slice(0, 250)}. Analiz yapılmış gibi göstermeyeceğim.`,
+          emotion: "focused",
+        }, { status: 502 });
+      }
+    }
+
     // Read-only Google Drive access for natural chat requests.
     // OAuth being connected is not enough: explicitly fetch the catalog and pass its
     // verified contents into the model so Mira can answer from the real files.

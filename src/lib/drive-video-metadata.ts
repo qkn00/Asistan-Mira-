@@ -24,7 +24,7 @@ export function readDriveVideoMetadata(markdown: string, videoNumber: number): D
   const block = lines.slice(start, end).join("\n");
   const read = (labels: string[]) => {
     for (const label of labels) {
-      const escaped = label.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&");
+      const escaped = label;
       const match = block.match(new RegExp(`(?:^|\\n)\\s*(?:📌|📝|🏷️|💬)?\\s*\\**${escaped}\\**\\s*:\\s*([\\s\\S]*?)(?=\\n\\s*(?:📌|📝|🏷️|💬)?\\s*\\**[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ ]{2,}\\**\\s*:|$)`, "i"));
       if (match?.[1]?.trim()) return cleanSection(match[1]);
     }

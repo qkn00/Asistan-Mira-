@@ -79,8 +79,8 @@ export async function POST(req: Request) {
     // /video <numara> and /drive-hazirla <numara>: import an existing Drive MP4 into Mira's server.
     // This only prepares the asset; it never uploads to YouTube.
     if (command === '/video' || command === '/drive-hazirla') {
-      const numberText = message.trim().split(/\\s+/)[1] || '';
-      const videoNumber = /^\\d{1,3}$/.test(numberText) ? Number(numberText) : 0;
+      const numberText = message.trim().split(/\s+/)[1] || '';
+      const videoNumber = /^\d{1,3}$/.test(numberText) ? Number(numberText) : 0;
       if (!Number.isInteger(videoNumber) || videoNumber < 1 || videoNumber > 999) {
         return NextResponse.json({
           reply: 'Kullanım: /video 11 — Drive klasöründeki video_11.mp4 dosyasını Mira sunucusuna hazırlar. YouTube’a yüklemez.',
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
         const driveFile = (catalog.videos?.shorts || []).find((file) => file.name.toLocaleLowerCase('tr-TR') === expectedName);
         if (!driveFile?.id) {
           const available = (catalog.videos?.shorts || [])
-            .map((file) => file.name.match(/^video_(\\d+)\\.mp4$/i)?.[1])
+            .map((file) => file.name.match(/^video_(\d+)\.mp4$/i)?.[1])
             .filter((value): value is string => Boolean(value))
             .sort((a, b) => Number(a) - Number(b));
           return NextResponse.json({
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
           ? 'Bu dosya daha önce Mira sunucusuna aktarılmış.'
           : 'Drive dosyası Mira sunucusuna aktarıldı.';
         return NextResponse.json({
-          reply: `✅ ${statusText}\\nDosya: ${prepared.fileName || expectedName}\\nDrive dosya kimliği: ${driveFile.id}\\nİçerik kaydı: #${prepared.contentId ?? 'bilinmiyor'}\\nBaşlık: ${prepared.title || 'baslik.md kaydı'}.${size}\\nYouTube’a yüklenmedi; ayrıca açık onay gerekiyor.`,
+          reply: `✅ ${statusText}\nDosya: ${prepared.fileName || expectedName}\nDrive dosya kimliği: ${driveFile.id}\nİçerik kaydı: #${prepared.contentId ?? 'bilinmiyor'}\nBaşlık: ${prepared.title || 'baslik.md kaydı'}.${size}\nYouTube’a yüklenmedi; ayrıca açık onay gerekiyor.`,
           emotion: 'focused',
         });
       } catch (error) {

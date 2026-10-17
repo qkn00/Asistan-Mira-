@@ -843,7 +843,7 @@ export default function Home() {
             // A broken local cache should not prevent restoring database history.
           }
           const restored = cached.length > 0 ? cached : data.messages.filter(isMessage);
-          setMessages(restored);
+          setMessages(restored.slice(-100));
         }
       })
       .catch((error) => console.error('Sohbet geçmişi yüklenemedi:', error))
@@ -858,7 +858,7 @@ export default function Home() {
   useEffect(() => {
     if (!historyLoaded) return;
     try {
-      localStorage.setItem('mira_chat_history_v1', JSON.stringify(messages.slice(-200)));
+      localStorage.setItem('mira_chat_history_v1', JSON.stringify(messages.slice(-100)));
     } catch (error) {
       console.error('Sohbet geçmişi bu cihazda saklanamadı:', error);
     }
@@ -915,7 +915,7 @@ export default function Home() {
     const userMessage = input.trim();
     setInput('');
     setShowSuggestions(false);
-    setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
+    setMessages((prev) => [...prev, { role: 'user', content: userMessage }].slice(-100));
     setLoading(true);
 
     try {
@@ -961,13 +961,13 @@ export default function Home() {
       const imageUrl = data && typeof data === 'object' && 'imageUrl' in data && typeof data.imageUrl === 'string'
         ? data.imageUrl
         : undefined;
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply, ...(imageUrl ? { imageUrl } : {}) }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply, ...(imageUrl ? { imageUrl } : {}) }].slice(-100));
       speak(reply);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: `Hata oluştu: ${err.message || 'Bağlantı hatası'}` },
-      ]);
+      ].slice(-100));
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { requestedScheduleSlots } from "../src/lib/youtube-schedule-slots";
 
-const now = new Date("2026-10-17T00:00:00.000Z");
+const now = new Date("2026-10-17T10:00:00.000Z");
 
 test("parses two through four future Turkey-local schedule slots", () => {
   assert.equal(requestedScheduleSlots("18 Ekim 2026 saat 10:00 ve 12:00", now)?.length, 2);

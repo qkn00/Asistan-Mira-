@@ -17,26 +17,41 @@ const EXTERNAL_TIMEOUT_MS = 8000;
 const VIDEO_TIMEOUT_MS = 300000;
 export const maxDuration = 300;
 
-function nextAvailableShortSlots(videos: Array<{ publishAt?: string | null }>, now = Date.now()): string[] | null {
-  const occupied = new Set(
-    videos
-      .map((video) => video.publishAt ? new Date(video.publishAt).getTime() : NaN)
-      .filter((value) => Number.isFinite(value))
-  );
+function nextAvailablePublishAt(
+  fileName: string,
+  videos: Array<{ publishAt?: string | null }>,
+  reserved: string[],
+  now = Date.now(),
+): string | null {
+  const occupied = new Set([
+    ...videos.map((video) => video.publishAt ? new Date(video.publishAt).getTime() : NaN),
+    ...reserved.map((value) => new Date(value).getTime()),
+  ].filter((value) => Number.isFinite(value)));
   const turkeyNow = new Date(now + 3 * 60 * 60 * 1000);
   const localDayStart = Date.UTC(turkeyNow.getUTCFullYear(), turkeyNow.getUTCMonth(), turkeyNow.getUTCDate());
-  const slots: string[] = [];
-  for (let day = 0; day < 31 && slots.length < 2; day++) {
+  const isLongVideo = /^uzun_video_\d+\.mp4$/iu.test(fileName);
+  if (isLongVideo) {
+    const today = new Date(localDayStart).toISOString().slice(0, 10);
+    const todayAtSix = new Date(\`\${today}T18:00:00+03:00\`).getTime();
+    const firstDayOffset = todayAtSix > now + 60_000 ? 0 : 1;
+    for (let step = 0; step < 45; step++) {
+      const day = firstDayOffset + step * 2;
+      const date = new Date(localDayStart + day * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const timestamp = new Date(\`\${date}T18:00:00+03:00\`).getTime();
+      if (timestamp <= now + 60_000 || occupied.has(timestamp)) continue;
+      return new Date(timestamp).toISOString();
+    }
+    return null;
+  }
+  for (let day = 0; day < 31; day++) {
     const date = new Date(localDayStart + day * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     for (const time of ["12:30", "19:30"]) {
-      const timestamp = new Date(`${date}T${time}:00+03:00`).getTime();
+      const timestamp = new Date(\`\${date}T\${time}:00+03:00\`).getTime();
       if (timestamp <= now + 60_000 || occupied.has(timestamp)) continue;
-      slots.push(new Date(timestamp).toISOString());
-      occupied.add(timestamp);
-      if (slots.length === 2) break;
+      return new Date(timestamp).toISOString();
     }
   }
-  return slots.length === 2 ? slots : null;
+  return null;
 }
 
 function requestedScheduleSlots(text: string): string[] | null {
@@ -297,8 +312,7 @@ export async function POST(req: Request) {
           createdAt: operations.createdAt,
         }).from(operations).orderBy(desc(operations.id)).limit(30);
         return NextResponse.json({
-          reply: rows.length
-            ? ['🧾 Son işlem/üretim kayıtları:', '', ...rows.map((row) => {
+          reply: rows.length            ? ['🧾 Son işlem/üretim kayıtları:', '', ...rows.map((row) => {
                 const date = row.createdAt
                   ? new Date(row.createdAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })
                   : 'tarih yok';
@@ -597,8 +611,7 @@ export async function POST(req: Request) {
             steps.push(`#${contentId} videosu daha önce üretilmiş`);
           } else {
             return NextResponse.json({ reply: `ℹ️ İçerik #${contentId} durumu "${row.status}"; üretim yalnızca taslak/onaylı içeriklerden tetiklenebilir.` });
-          }
-        }
+          }        }
 
         // UZUN İŞ: üretimin bitmesini BEKLEME — ateşle ve hemen geri dön.
         // Edge'in idle-kesmesi artık bu çağrıyı öldüremez; her aşama logEvent'e düşer.
@@ -837,7 +850,7 @@ export async function POST(req: Request) {
           /(?:yükle|yükleme|planla|programla|yayına hazırla|işleme al|ilerle|tetikle)/iu.test(message) &&
           !/(?:yükleme|yükle|planla|programla).{0,35}(?:yapma|etme|dur|iptal|istemiyorum)|(?:sakın|kesinlikle).{0,25}(?:yükle|planla)/iu.test(message);
         const wantsTwoScheduledUploads =
-          /(?:kanal|youtube|drive).{0,100}(?:yükle|yüklesin|planla|programla).{0,80}(?:iki|2)\\s*(?:tane|adet)?|(?:iki|2)\\s*(?:tane|adet).{0,100}(?:yükle|yüklesin|planla|programla)/iu.test(message) ||
+          /(?:kanal|youtube|drive).{0,100}(?:yükle|yüklesin|planla|programla).{0,80}(?:iki|2)\s*(?:tane|adet)?|(?:iki|2)\s*(?:tane|adet).{0,100}(?:yükle|yüklesin|planla|programla)/iu.test(message) ||
           (namesBothTargetFiles && hasUploadIntent) ||
           (hasUploadIntent && /(?:drive|youtube|video|mp4)/iu.test(message));
         if (wantsTwoScheduledUploads) {
@@ -888,9 +901,10 @@ export async function POST(req: Request) {
           const selectionPrompt = [
             "Sadece JSON döndür; açıklama, markdown çiti veya başka metin yazma.",
             "Gerçek YouTube kanalındaki mevcut videolar ile Google Drive katalogunu karşılaştır.",
-            "Kanalda bulunmayan iki Shorts dosyasını seç. Öncelik video_11.mp4, sonra video_12.mp4; bunlar zaten yüklenmişse sıradaki yüklenmemiş dosyaları seç.",
-            "Yalnızca baslik.md içeriğinden doğrulayabildiğin başlık, açıklama, etiket ve yorum bilgilerini kullan. Bir dosyanın metaverisi belirsizse onu seçme. Aynı videoyu tekrar yükleme.",
-            "Şema: {\"videos\":[{\"fileName\":\"video_11.mp4\",\"title\":\"...\",\"description\":\"...\",\"tags\":[\"...\"],\"comment\":\"...\"},{...}]}. Tam olarak iki farklı dosya olmalı; aksi durumda {\"videos\":[]} döndür.",
+            "Drive'daki henüz YouTube kanalında bulunmayan videoları seç. Öncelik video_11.mp4, video_12.mp4, video_13.mp4, video_14.mp4, video_15.mp4 ve uzun_video_3.mp4; bunlar zaten kanalda varsa atla.",
+            "YouTube kanalında zaten bulunan video_1.mp4–video_10.mp4 ve uzun_video_1.mp4–uzun_video_2.mp4 dosyalarını tekrar seçme. Aynı videoyu tekrar yükleme.",
+            "Yalnızca baslik.md içeriğinden doğrulayabildiğin başlık, açıklama, etiket ve yorum bilgilerini kullan. Dosya-başlık eşleşmesi belirsizse o dosyayı dahil etme; emin olduğun diğer dosyaları yine döndür.",
+            "En fazla 6 farklı dosya döndür. Şema: {\"videos\":[{\"fileName\":\"video_11.mp4\",\"title\":\"...\",\"description\":\"...\",\"tags\":[\"...\"],\"comment\":\"...\"}]}. Yalnızca doğrulayabildiğin dosyalar; hiçbiri doğrulanamıyorsa {\"videos\":[]} döndür.",
             auditContext,
           ].join("\n");
           const selection = await think(selectionPrompt, history, "", "flirty", memoryContext, "", privateMode);
@@ -899,22 +913,36 @@ export async function POST(req: Request) {
           try { parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {}; } catch {}
           const candidates = Array.isArray(parsed.videos) ? parsed.videos : [];
           const validFiles = new Set([...(driveData.videos?.shorts || []), ...(driveData.videos?.longVideos || [])].map((file) => file.name));
-          const usable = candidates.filter((item): item is { fileName: string; title: string; description: string; tags: string[]; comment: string } =>
-            typeof item.fileName === "string" && validFiles.has(item.fileName) &&
-            typeof item.title === "string" && Boolean(item.title.trim()) &&
-            typeof item.description === "string" &&
-            Array.isArray(item.tags) && item.tags.every((tag) => typeof tag === "string") &&
-            typeof item.comment === "string"
-          ).slice(0, 2);
-          if (usable.length !== 2 || usable[0].fileName === usable[1].fileName) {
+          const seenFiles = new Set<string>();
+          const usable = candidates.filter((item): item is { fileName: string; title: string; description: string; tags: string[]; comment: string } => {
+            if (typeof item.fileName !== "string" || !validFiles.has(item.fileName) || seenFiles.has(item.fileName)) return false;
+            if (typeof item.title !== "string" || !item.title.trim() || typeof item.description !== "string") return false;
+            if (!Array.isArray(item.tags) || !item.tags.every((tag) => typeof tag === "string") || typeof item.comment !== "string") return false;
+            seenFiles.add(item.fileName);
+            return true;
+          }).slice(0, 6);
+          if (usable.length === 0) {
             return NextResponse.json({
-              reply: "Kanal ve Drive analizini yaptım ancak iki videonun başlık/açıklama/yorum eşleşmesini güvenilir biçimde doğrulayamadım. Güvenlik için hiçbir video yüklemedim.\n\n" + (selection.reply || ""),
+              reply: "Bütün Drive videolarını doğruladım, ancak baslik.md ile güvenilir biçimde eşleştirebildiğim yüklenmemiş video bulamadım. Güvenlik için hiçbir yükleme yapmadım.",
               emotion: "focused",
             });
           }
 
+          const assignedSlots: string[] = [];
+          for (let i = 0; i < usable.length; i++) {
+            const explicitSlot = explicitSlots && i < explicitSlots.length ? explicitSlots[i] : null;
+            const slot = explicitSlot || nextAvailablePublishAt(usable[i].fileName, youtubeData.videos || [], assignedSlots);
+            if (!slot) {
+              return NextResponse.json({
+                reply: "Yüklenmemiş videolar bulundu ama mevcut yayın takvimine çakışmadan yeterli yayın saati ayıramadım. Hiçbir yeni yükleme başlatılmadı.",
+                emotion: "focused",
+              });
+            }
+            assignedSlots.push(slot);
+          }
+
           const uploadResults: Array<Record<string, unknown>> = [];
-          for (let i = 0; i < 2; i++) {
+          for (let i = 0; i < usable.length; i++) {
             const candidate = usable[i];
             const response = await fetchWithTimeoutMs(`${origin}/api/youtube/drive-upload`, {
               method: "POST",
@@ -926,21 +954,21 @@ export async function POST(req: Request) {
                 description: candidate.description,
                 tags: candidate.tags,
                 comment: candidate.comment,
-                publishAt: slots[i],
+                publishAt: assignedSlots[i],
               }),
             }, VIDEO_TIMEOUT_MS);
             const data = await response.json().catch(() => ({})) as Record<string, unknown>;
             uploadResults.push({ fileName: candidate.fileName, httpStatus: response.status, ...data });
           }
           const report = uploadResults.map((result, index) =>
-            `${index + 1}. ${String(result.fileName || "dosya")}: ${result.uploaded === true && result.scheduled === true ? "PLANLANDI" : "BAŞARISIZ"} — ${String(result.url || result.error || "sonuç doğrulanamadı")} — yayın: ${slots[index]}`
+            `${index + 1}. ${String(result.fileName || "dosya")}: ${result.uploaded === true && result.scheduled === true ? "PLANLANDI" : "BAŞARISIZ"} — ${String(result.url || result.error || "sonuç doğrulanamadı")} — yayın: ${assignedSlots[index]}`
           );
           return NextResponse.json({
             reply: [
               "YouTube kanal analizi tamamlandı.",
               ...report,
               "Yorum sabitleme YouTube Data API üzerinden yapılamıyor; hiçbir yorumun sabitlendiğini iddia etmiyorum.",
-              "Herhangi bir video hemen herkese açık yayımlanmadı; yükleme planlı ve gizli olarak yapıldı.",
+              "Herhangi bir video hemen herkese açık yayımlanmadı; yüklemeler planlı ve gizli olarak yapıldı.",
             ].join("\n"),
             emotion: "focused",
           });
@@ -1197,8 +1225,7 @@ export async function POST(req: Request) {
       } catch (saveError) {
         console.error("Mira content draft save failed:", saveError);
         result.reply += "\n\n⚠️ Taslağı onay paneline kaydedemedim. Kayıt doğrulanmadığı için kaydedildi diyemem; içerik yayımlanmadı.";
-      }
-    }
+      }    }
 
     // A direct Telegram troubleshooting request must perform a real API check,
     // not let the language model simulate checking phone notification settings.

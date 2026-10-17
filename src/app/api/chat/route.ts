@@ -1086,7 +1086,7 @@ export async function POST(req: Request) {
           const validFiles = new Set((driveData.videos?.shorts || []).map((file) => file.name));
           const usable = candidates.flatMap((item) => {
             if (typeof item.fileName !== "string" || !validFiles.has(item.fileName)) return [];
-            const numberMatch = item.fileName.match(/^video_(\\d+)\\.mp4$/iu);
+            const numberMatch = item.fileName.match(/^video_(\d+)\.mp4$/iu);
             if (!numberMatch || !driveData.documentText) return [];
             try {
               const metadata = readDriveVideoMetadata(driveData.documentText, Number(numberMatch[1]));

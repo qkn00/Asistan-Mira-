@@ -1052,7 +1052,7 @@ export async function POST(req: Request) {
           const selectionPrompt = [
             "Sadece JSON döndür; açıklama, markdown çiti veya başka metin yazma.",
             "Gerçek YouTube kanalındaki mevcut videolar ile Google Drive katalogunu karşılaştır.",
-            "Kanalda bulunmayan, metadata bilgileri doğrulanabilen istenen sayıda Shorts dosyası seç. Öncelik video_11.mp4, sonra video_12.mp4; bunlar zaten yüklenmişse sıradaki yüklenmemiş dosyaları seç.",
+            `Kanalda bulunmayan, metadata bilgileri doğrulanabilen tam olarak ${slots.length} Shorts dosyası seç. Öncelik video_11.mp4, sonra video_12.mp4; bunlar zaten yüklenmişse sıradaki yüklenmemiş dosyaları seç.`,
             "Yalnızca baslik.md içeriğinden doğrulayabildiğin başlık, açıklama, etiket ve yorum bilgilerini kullan. Bir dosyanın metaverisi belirsizse onu seçme. Aynı videoyu tekrar yükleme.",
             "Şema: {\"videos\":[{\"fileName\":\"video_11.mp4\",\"title\":\"...\",\"description\":\"...\",\"tags\":[\"...\"],\"comment\":\"...\"},{...}]}. Tam olarak istenen sayıda farklı dosya olmalı; aksi durumda {\"videos\":[]} döndür.",
             auditContext,

@@ -827,11 +827,13 @@ export async function POST(req: Request) {
           const shorts = data.videos?.shorts || [];
           const longVideos = data.videos?.longVideos || [];
           const titles = (data.titleCandidates || []).map((item) => `L${item.line}: ${item.title}`).join("\n");
+          const formatCatalogFile = (item: { name: string; size?: string }) =>
+            `${item.name} (${item.size ? `${Number(item.size).toLocaleString("tr-TR")} bayt` : "boyut bilgisi yok"})`;
           const body = [
             `Drive API'den canlı okuma tamamlandı. Dosya: ${data.document?.name || "baslik.md"}; metin uzunluğu: ${data.document?.characters ?? 0} karakter.`,
             `Video listesi: ${shorts.length} Shorts, ${longVideos.length} uzun video.`,
-            shorts.length ? `Shorts: ${shorts.map((item) => item.name).join(", ")}` : "Shorts dosyası bulunamadı.",
-            longVideos.length ? `Uzun videolar: ${longVideos.map((item) => item.name).join(", ")}` : "Uzun video dosyası bulunamadı.",
+            shorts.length ? `Shorts: ${shorts.map(formatCatalogFile).join(", ")}` : "Shorts dosyası bulunamadı.",
+            longVideos.length ? `Uzun videolar: ${longVideos.map(formatCatalogFile).join(", ")}` : "Uzun video dosyası bulunamadı.",
             titles ? `baslik.md başlıkları:\n${titles}` : "baslik.md içinde başlık/listelenen madde bulunamadı.",
             "Not: Bu işlem dosyaları listeledi ve baslik.md dosyasını okudu; MP4 dosyalarının sağlamlığı ayrıca test edilmediyse doğrulanmış sayılmaz."
           ].join("\n\n");

@@ -1,7 +1,7 @@
 import { isMiraSessionCookie } from "@/lib/mira-auth";
 import { NextResponse } from "next/server";
 import { downloadDriveFile, listDriveFolderFiles } from "@/lib/google-drive";
-import { spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -39,17 +39,13 @@ async function inspectVideo(data: Buffer, name: string): Promise<VideoInspection
     dir = await mkdtemp(path.join(os.tmpdir(), "mira-video-check-"));
     const filePath = path.join(dir, name.replace(/[^a-zA-Z0-9._-]/g, "_") || "video.mp4");
     await writeFile(filePath, data);
+    const binaryPath = ffmpegPath;
+    if (!binaryPath) throw new Error("ffmpeg-static ikilisi sunucuda bulunamadı.");
     const stderr = await new Promise<string>((resolve, reject) => {
-      const child = spawn(ffmpegPath, ["-hide_banner", "-i", filePath], { stdio: ["ignore", "ignore", "pipe"] });
-      let output = "";
-      const timeout = setTimeout(() => child.kill("SIGKILL"), 20000);
-      child.stderr.setEncoding("utf8");
-      child.stderr.on("data", (chunk: string) => { output += chunk; });
-      child.on("error", (error) => { clearTimeout(timeout); reject(error); });
-      child.on("close", () => {
-        clearTimeout(timeout);
+      execFile(binaryPath, ["-hide_banner", "-i", filePath], { timeout: 20000, encoding: "utf8" }, (error, _stdout, output) => {
         // ffmpeg exits non-zero when no output target is supplied; input metadata is still printed.
-        resolve(output);
+        if (error && !output) reject(error);
+        else resolve(String(output || ""));
       });
     });
     const durationMatch = stderr.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/i);

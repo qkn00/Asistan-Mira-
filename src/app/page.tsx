@@ -209,6 +209,7 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -820,12 +821,29 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (entered) {
-      void loadDrafts();
-      void loadAnalysis();
-      void loadReadyVideos();
-      void loadManualQueue();
-    }
+    if (!entered) return;
+    let active = true;
+    setHistoryLoaded(false);
+    void fetch('/api/chat/history', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Sohbet geçmişi alınamadı (HTTP ${res.status}).`);
+        const data = await res.json();
+        if (active && Array.isArray(data?.messages)) {
+          const restored = data.messages.filter((item: unknown): item is Message => {
+            if (!item || typeof item !== 'object') return false;
+            const candidate = item as Partial<Message>;
+            return (candidate.role === 'user' || candidate.role === 'assistant') && typeof candidate.content === 'string';
+          });
+          setMessages(restored);
+        }
+      })
+      .catch((error) => console.error('Sohbet geçmişi yüklenemedi:', error))
+      .finally(() => { if (active) setHistoryLoaded(true); });
+    void loadDrafts();
+    void loadAnalysis();
+    void loadReadyVideos();
+    void loadManualQueue();
+    return () => { active = false; };
   }, [entered]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -874,7 +892,7 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || !historyLoaded) return;
 
     const userMessage = input.trim();
     setInput('');

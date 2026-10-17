@@ -14,7 +14,30 @@ const PRIVATE_MODE_COOKIE = 'mira_private_mode';
 const ENTRY_COOKIE = 'mira_entry';
 
 const EXTERNAL_TIMEOUT_MS = 8000;
-const VIDEO_TIMEOUT_MS = 180000;
+const VIDEO_TIMEOUT_MS = 300000;
+export const maxDuration = 300;
+
+function nextAvailableShortSlots(videos: Array<{ publishAt?: string | null }>, now = Date.now()): string[] | null {
+  const occupied = new Set(
+    videos
+      .map((video) => video.publishAt ? new Date(video.publishAt).getTime() : NaN)
+      .filter((value) => Number.isFinite(value))
+  );
+  const turkeyNow = new Date(now + 3 * 60 * 60 * 1000);
+  const localDayStart = Date.UTC(turkeyNow.getUTCFullYear(), turkeyNow.getUTCMonth(), turkeyNow.getUTCDate());
+  const slots: string[] = [];
+  for (let day = 0; day < 31 && slots.length < 2; day++) {
+    const date = new Date(localDayStart + day * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    for (const time of ["12:30", "19:30"]) {
+      const timestamp = new Date(`${date}T${time}:00+03:00`).getTime();
+      if (timestamp <= now + 60_000 || occupied.has(timestamp)) continue;
+      slots.push(new Date(timestamp).toISOString());
+      occupied.add(timestamp);
+      if (slots.length === 2) break;
+    }
+  }
+  return slots.length === 2 ? slots : null;
+}
 
 function requestedScheduleSlots(text: string): string[] | null {
   const months: Record<string, string> = {
@@ -297,8 +320,7 @@ export async function POST(req: Request) {
     if (command === '/taslak-list') {
       try {
         const rows = await db.select().from(contentItems).orderBy(desc(contentItems.updatedAt)).limit(100);
-        const draftOps = await db.select().from(operations)
-          .where(eq(operations.action, 'autonomous_content_draft'))
+        const draftOps = await db.select().from(operations)          .where(eq(operations.action, 'autonomous_content_draft'))
           .orderBy(desc(operations.id))
           .limit(500);
         const byId = new Map<number, { title: string; status: string; platform: string; createdAt: string }>();
@@ -597,8 +619,7 @@ export async function POST(req: Request) {
             if (!r.ok) {
               void logEvent({ level: 'error', source: 'chat/video', message: `Üretim red döndü: HTTP ${r.status} — ${raw.slice(0, 160)}`, meta: { contentId } });
             } else if (parsed && (parsed.ok === false || parsed.produced === false || parsed.blocked === true)) {
-              const why = String(parsed.error ?? parsed.message ?? raw.slice(0, 160));
-              void logEvent({ level: 'warn', source: 'chat/video', message: `Üretim tamamlanamadı: ${why.slice(0, 180)}${parsed.reason ? ` | sebep: ${String(parsed.reason).slice(0, 120)}` : ''}`, meta: { contentId } });
+              const why = String(parsed.error ?? parsed.message ?? raw.slice(0, 160));              void logEvent({ level: 'warn', source: 'chat/video', message: `Üretim tamamlanamadı: ${why.slice(0, 180)}${parsed.reason ? ` | sebep: ${String(parsed.reason).slice(0, 120)}` : ''}`, meta: { contentId } });
             } else {
               void logEvent({ level: 'success', source: 'chat/video', message: `Chat tetiklemesiyle video üretimi tamamlandı (${Math.round((Date.now() - startedAt) / 1000)} sn)`, meta: { contentId } });
             }
@@ -783,7 +804,7 @@ export async function POST(req: Request) {
         ]);
         const youtubeData = await youtubeResponse.json().catch(() => ({})) as {
           ok?: boolean; error?: string; channelTitle?: string; channelId?: string; count?: number;
-          videos?: Array<{ videoId: string; title: string; publishedAt: string | null; privacyStatus: string | null; url: string }>;
+          videos?: Array<{ videoId: string; title: string; publishedAt: string | null; publishAt?: string | null; privacyStatus: string | null; url: string }>;
         };
         const driveData = await driveResponse.json().catch(() => ({})) as {
           ok?: boolean; error?: string; document?: { name?: string; characters?: number };
@@ -816,16 +837,51 @@ export async function POST(req: Request) {
           /(?:yükle|yükleme|planla|programla|yayına hazırla|işleme al|ilerle|tetikle)/iu.test(message) &&
           !/(?:yükleme|yükle|planla|programla).{0,35}(?:yapma|etme|dur|iptal|istemiyorum)|(?:sakın|kesinlikle).{0,25}(?:yükle|planla)/iu.test(message);
         const wantsTwoScheduledUploads =
-          /(?:kanal|youtube|drive).{0,100}(?:yükle|yüklesin|planla|programla).{0,80}(?:iki|2)\s*(?:tane|adet)?|(?:iki|2)\s*(?:tane|adet).{0,100}(?:yükle|yüklesin|planla|programla)/iu.test(message) ||
-          (namesBothTargetFiles && hasUploadIntent);
+          /(?:kanal|youtube|drive).{0,100}(?:yükle|yüklesin|planla|programla).{0,80}(?:iki|2)\\s*(?:tane|adet)?|(?:iki|2)\\s*(?:tane|adet).{0,100}(?:yükle|yüklesin|planla|programla)/iu.test(message) ||
+          (namesBothTargetFiles && hasUploadIntent) ||
+          (hasUploadIntent && /(?:drive|youtube|video|mp4)/iu.test(message));
         if (wantsTwoScheduledUploads) {
-          const scheduleText = [...history.map((item) => item.content), message].join("\n");
-          const slots = requestedScheduleSlots(scheduleText);
+          const scheduleText = [...history.map((item) => item.content), message].join("\\n");
+          const explicitSlots = requestedScheduleSlots(scheduleText);
+          const slots = explicitSlots || nextAvailableShortSlots(youtubeData.videos || []);
           if (!slots) {
-            const auditResult = await think(message, history, "", "flirty", `${memoryContext}\n\n${auditContext}`, "", privateMode);
             return NextResponse.json({
-              reply: `${auditResult.reply || "Kanal analizi tamamlandı."}\n\nYükleme başlatmadım: konuşmada gelecekteki iki yayın saati açıkça bulunamadı. Hiçbir video yüklenmedi.`,
-              emotion: auditResult.emotion || "focused",
+              reply: "Uygun iki yayın saati bulamadım. Mevcut yayın takvimini değiştirmedim ve hiçbir video yüklemedim.",
+              emotion: "focused",
+            });
+          }
+          if (explicitSlots) {
+            const occupiedTimes = new Set((youtubeData.videos || [])
+              .map((video) => video.publishAt ? new Date(video.publishAt).getTime() : NaN)
+              .filter((value) => Number.isFinite(value)));
+            if (explicitSlots.some((slot) => occupiedTimes.has(new Date(slot).getTime()))) {
+              return NextResponse.json({
+                reply: "İstediğin yayın saatlerinden biri YouTube kanalında zaten planlanmış. Çakışma yaratmamak için hiçbir video yüklemedim; mevcut takvim değişmedi.",
+                emotion: "focused",
+              });
+            }
+          }
+
+          // Verify every Drive MP4 before any upload. A single failed file blocks the upload batch.
+          const verificationResponse = await fetchWithTimeoutMs(
+            `${origin}/api/drive/test-download?all=1`,
+            { headers: { cookie: cookieHeader }, cache: "no-store" },
+            VIDEO_TIMEOUT_MS,
+          );
+          const verification = await verificationResponse.json().catch(() => ({})) as {
+            ok?: boolean; total?: number; passed?: number; failed?: number;
+            results?: Array<{ name?: string; ok?: boolean; error?: string }>; error?: string; message?: string;
+          };
+          if (!verificationResponse.ok || verification.ok !== true) {
+            const failures = (verification.results || []).filter((item) => item.ok !== true)
+              .map((item) => `${item.name || "dosya"}: ${item.error || "doğrulama başarısız"}`).slice(0, 8);
+            return NextResponse.json({
+              reply: [
+                `Drive toplu doğrulaması başarısız: ${verification.passed ?? 0}/${verification.total ?? 0} dosya geçti; ${verification.failed ?? "?"} dosya hatalı.`,
+                ...failures,
+                "Güvenlik nedeniyle hiçbir YouTube yüklemesi başlatılmadı. Yayın takvimi değişmedi.",
+              ].join("\\n"),
+              emotion: "focused",
             });
           }
 
@@ -897,8 +953,7 @@ export async function POST(req: Request) {
         });
       } catch (auditError) {
         const reason = auditError instanceof Error ? auditError.message : String(auditError);
-        console.error("[Chat] YouTube channel audit failed:", reason);
-        return NextResponse.json({
+        console.error("[Chat] YouTube channel audit failed:", reason);        return NextResponse.json({
           reply: `Kanal analizi tamamlanamadı: ${reason.slice(0, 250)}. Analiz yapılmış gibi göstermeyeceğim.`,
           emotion: "focused",
         }, { status: 502 });

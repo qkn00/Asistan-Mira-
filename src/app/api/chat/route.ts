@@ -782,7 +782,7 @@ export async function POST(req: Request) {
       try {
         const origin = selfOrigin();
         // Natural-language Drive import: prepare the requested numbered Short without uploading it.
-        const prepareVideoMatch = message.match(/(?:drive(?:'daki|'ta|da|dan)?|google\s*drive|video)?[\s\S]{0,80}?(?:video\s*)?(\d{1,3})\s*(?:numaralı|numarali|no(?:'lu)?|numara(?:lı|li)?)\s*video|video_(\d{1,3})\.mp4/iu);
+        const prepareVideoMatch = message.match(/(?:drive(?:'daki|'ta|da|dan)?|google\s*drive|video)?[\s\S]{0,80}?(?:video\s*)?(\d{1,3})\s*(?:numaralı|numarali|no(?:'lu)?|numara(?:lı|li)?)\s*video(?:yu|yı)?|video_(\d{1,3})\.mp4/iu);
         const asksToPrepareDriveVideo = Boolean(prepareVideoMatch) &&
           /(?:hazırla|hazirla|içe\s*aktar|ice\s*aktar|içeri\s*al|iceri\s*al|sisteme\s*al|mira'ya\s*aktar)/iu.test(message) &&
           !/(?:youtube|kanal).{0,30}(?:yükle|yayınla|planla)|(?:yükle|yayınla|planla).{0,30}(?:youtube|kanal)/iu.test(message);

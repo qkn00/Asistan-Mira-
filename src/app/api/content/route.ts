@@ -25,6 +25,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: "Giriş gerekli." }, { status: 401 });
+  return NextResponse.json({
+    error: "Elle içerik kaydetme kapatıldı. Yeni içerik kaynağı Google Drive'dır.",
+    source: "google_drive",
+  }, { status: 410 });
   const b = await req.json().catch(() => ({}));
   if (typeof b.title !== "string" || typeof b.platform !== "string") {
     return NextResponse.json({ error: "title ve platform gerekli" }, { status: 400 });

@@ -233,6 +233,7 @@ export type UploadInput = {
   description: string;
   tags?: string[];
   privacyStatus?: "private" | "unlisted" | "public"; // unaudited uygulamada 'public' private kilitlenir
+  publishAt?: string; // ISO timestamp; future private scheduled upload only
   video: Buffer;
 };
 
@@ -263,7 +264,8 @@ export async function uploadShort(input: UploadInput): Promise<UploadOutput> {
         categoryId: process.env.YOUTUBE_CATEGORY_ID || "27", // Education
       },
       status: {
-        privacyStatus: privacy,
+        privacyStatus: input.publishAt ? "private" : privacy,
+        ...(input.publishAt ? { publishAt: input.publishAt } : {}),
         selfDeclaredMadeForKids: false,
       },
     }),
@@ -300,6 +302,33 @@ export async function uploadShort(input: UploadInput): Promise<UploadOutput> {
   return { videoId, url: `https://www.youtube.com/shorts/${videoId}`, privacyStatus: privacy };
 }
 
+
+/** Add a top-level comment to a video. YouTube's public Data API does not expose pin/unpin operations. */
+export async function addYoutubeComment(videoId: string, text: string): Promise<{ commentId: string }> {
+  if (!/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) throw new Error("Geçersiz YouTube video ID");
+  const cleanText = text.trim().slice(0, 10000);
+  if (!cleanText) throw new Error("Yorum metni boş.");
+  const accessToken = await freshAccessToken();
+  const response = await fetch("https://www.googleapis.com/youtube/v3/commentThreads?part=snippet", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      snippet: {
+        videoId,
+        topLevelComment: { snippet: { textOriginal: cleanText } },
+      },
+    }),
+    signal: AbortSignal.timeout(20_000),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(`YouTube yorum eklenemedi HTTP ${response.status}: ${String(data?.error?.message || "API hatası").slice(0, 300)}`);
+  }
+  const commentId = data?.snippet?.topLevelComment?.id || data?.id;
+  if (typeof commentId !== "string" || !commentId) throw new Error("YouTube yorum kimliği döndürmedi.");
+  return { commentId };
+}
 
 /** Change an already-uploaded video to public only after an explicit Telegram callback. */
 export async function makeYoutubeVideoPublic(videoId: string): Promise<{ videoId: string; url: string; privacyStatus: string }> {

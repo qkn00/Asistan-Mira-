@@ -158,6 +158,7 @@ export type ChannelVideo = {
   title: string;
   description: string;
   publishedAt: string | null;
+  publishAt: string | null;
   privacyStatus: string | null;
   url: string;
 };
@@ -220,6 +221,7 @@ export async function listMyChannelVideos(maxVideos = 200): Promise<{ channelId:
         title: String(item.snippet?.title || ""),
         description: String(item.snippet?.description || ""),
         publishedAt: typeof item.snippet?.publishedAt === "string" ? item.snippet.publishedAt : null,
+        publishAt: typeof item.status?.publishAt === "string" ? item.status.publishAt : null,
         privacyStatus: typeof item.status?.privacyStatus === "string" ? item.status.privacyStatus : null,
         url: `https://www.youtube.com/watch?v=${item.id}`,
       });

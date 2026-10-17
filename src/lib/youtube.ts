@@ -153,6 +153,81 @@ export async function getMyChannel(accessToken?: string) {
   return { channelId: item.id as string, channelTitle: item.snippet?.title as string };
 }
 
+export type ChannelVideo = {
+  videoId: string;
+  title: string;
+  description: string;
+  publishedAt: string | null;
+  privacyStatus: string | null;
+  url: string;
+};
+
+/** Read the authenticated channel's uploads playlist, including private videos owned by this account. */
+export async function listMyChannelVideos(maxVideos = 200): Promise<{ channelId: string; channelTitle: string; videos: ChannelVideo[] }> {
+  const token = await freshAccessToken();
+  const limit = Math.max(1, Math.min(500, Math.floor(maxVideos)));
+  const channelResponse = await fetch(`${CHANNELS_URL}?part=snippet,contentDetails&mine=true`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(20_000),
+    cache: "no-store",
+  });
+  const channelData = await channelResponse.json().catch(() => ({}));
+  if (!channelResponse.ok) {
+    throw new Error(`YouTube kanal listesi alınamadı HTTP ${channelResponse.status}: ${String(channelData?.error?.message || "API hatası").slice(0, 250)}`);
+  }
+  const channel = channelData?.items?.[0];
+  const uploadsPlaylistId = channel?.contentDetails?.relatedPlaylists?.uploads;
+  if (!channel?.id || !uploadsPlaylistId) throw new Error("YouTube kanalının yüklenen videolar listesi bulunamadı.");
+
+  const ids: string[] = [];
+  let pageToken = "";
+  while (ids.length < limit) {
+    const params = new URLSearchParams({
+      part: "contentDetails",
+      playlistId: uploadsPlaylistId,
+      maxResults: String(Math.min(50, limit - ids.length)),
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(20_000),
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(`YouTube video listesi alınamadı HTTP ${response.status}: ${String(data?.error?.message || "API hatası").slice(0, 250)}`);
+    for (const item of data?.items || []) {
+      const id = item?.contentDetails?.videoId;
+      if (typeof id === "string" && id) ids.push(id);
+    }
+    pageToken = typeof data?.nextPageToken === "string" ? data.nextPageToken : "";
+    if (!pageToken || !(data?.items || []).length) break;
+  }
+
+  const videos: ChannelVideo[] = [];
+  for (let offset = 0; offset < ids.length; offset += 50) {
+    const params = new URLSearchParams({ part: "snippet,status", id: ids.slice(offset, offset + 50).join(","), maxResults: "50" });
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(20_000),
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(`YouTube video ayrıntıları alınamadı HTTP ${response.status}: ${String(data?.error?.message || "API hatası").slice(0, 250)}`);
+    for (const item of data?.items || []) {
+      if (typeof item?.id !== "string") continue;
+      videos.push({
+        videoId: item.id,
+        title: String(item.snippet?.title || ""),
+        description: String(item.snippet?.description || ""),
+        publishedAt: typeof item.snippet?.publishedAt === "string" ? item.snippet.publishedAt : null,
+        privacyStatus: typeof item.status?.privacyStatus === "string" ? item.status.privacyStatus : null,
+        url: `https://www.youtube.com/watch?v=${item.id}`,
+      });
+    }
+  }
+  return { channelId: channel.id, channelTitle: String(channel.snippet?.title || ""), videos };
+}
+
 export type UploadInput = {
   title: string;
   description: string;

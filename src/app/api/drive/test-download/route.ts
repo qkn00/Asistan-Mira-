@@ -12,10 +12,11 @@ type VideoTechnicalInfo = {
 };
 
 async function inspectVideo(data: Buffer): Promise<VideoTechnicalInfo> {
-  if (!ffmpegPath) throw new Error("FFmpeg binary yolu bulunamadı; ffmpeg-static kurulumu kontrol edilmeli.");
+  const binaryPath = ffmpegPath;
+  if (typeof binaryPath !== "string" || !binaryPath) throw new Error("FFmpeg binary yolu bulunamadı; ffmpeg-static kurulumu kontrol edilmeli.");
   return await new Promise((resolve, reject) => {
-    const child = spawn(ffmpegPath, ["-hide_banner", "-i", "pipe:0", "-t", "0.1", "-f", "null", "-"], {
-      stdio: ["pipe", "ignore", "pipe"],
+    const child = spawn(binaryPath, ["-hide_banner", "-i", "pipe:0", "-t", "0.1", "-f", "null", "-"], {
+      stdio: ["pipe", "ignore", "pipe"] as const,
     });
     let stderr = "";
     let settled = false;

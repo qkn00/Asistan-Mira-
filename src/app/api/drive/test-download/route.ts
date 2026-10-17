@@ -101,7 +101,7 @@ async function testFile(file: Awaited<ReturnType<typeof listDriveFolderFiles>>[n
       exactSizeMatch,
       mimeType: downloaded.mimeType,
       mp4SignatureValid,
-      error: passed ? undefined : "Boyut, MIME türü veya MP4 imzası doğrulanamadı.",
+      error: passed ? undefined : (!technical.ok ? `FFmpeg teknik analizi başarısız: ${technical.error || "video bilgileri okunamadı"}` : "Boyut, MIME türü veya MP4 imzası doğrulanamadı."),
     };
   } catch (error) {
     return {

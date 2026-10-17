@@ -19,7 +19,7 @@ export function readDriveVideoMetadata(markdown: string, videoNumber: number): D
     new RegExp(`^\\s*(?:#{1,6}\\s*)?(?:📹\\s*)?VIDEO\\s+0*${videoNumber}\\b`, "i").test(line);
   const start = lines.findIndex(sectionHeading);
   if (start < 0) throw new Error(`baslik.md içinde VIDEO ${videoNumber} bölümü bulunamadı.`);
-  let end = lines.findIndex((line, index) => index > start && /^\\s*(?:#{1,6}\\s*)?(?:📹\\s*)?VIDEO\\s+\\d+\\b/i.test(line));
+  let end = lines.findIndex((line, index) => index > start && /^\s*(?:#{1,6}\s*)?(?:📹\s*)?VIDEO\s+\d+\b/i.test(line));
   if (end < 0) end = lines.length;
   const block = lines.slice(start, end).join("\n");
   const read = (labels: string[]) => {

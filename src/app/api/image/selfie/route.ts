@@ -66,8 +66,9 @@ function findImageUrl(value: unknown, depth = 0): string | null {
 
 export async function POST(req: Request) {
   try {
-    const cookies = (req.headers.get("cookie") ?? "").split(";").map((part) => part.trim());
-    const authenticated = isMiraSessionCookie(cookies);
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    const cookies = cookieHeader.split(";").map((part) => part.trim());
+    const authenticated = isMiraSessionCookie(cookieHeader);
     const privateMode = cookies.includes(`${PRIVATE_MODE_COOKIE}=1`);
 
     if (!authenticated) {

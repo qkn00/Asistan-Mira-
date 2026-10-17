@@ -161,15 +161,9 @@ export async function POST(req: Request) {
           '',
           '/yardım — Bu komut listesini gösterir.',
           '/durum — Mira backend ve veritabanı sağlık durumunu kontrol eder.',
-          '/taslak-list — Kayıtlı taslakları listeler; işçi kayıtlarında kalanları da gösterir.',
+          '/drive-katalog — Google Drive klasöründeki gerçek başlık ve video dosyalarını kontrol eder.',
+          'Yeni içerik kaynağı yalnızca Google Drive’dır; eski manuel konu/taslak komutları kapatıldı.',
           '/uretim-list — Son üretim/işlem kayıtlarını veritabanından listeler.',
-          '/taslak <id> — Kayıtlı içerik taslağının tam metnini gösterir.',
-          '/taslak-sil <id> — Taslağı listeden kaldırır; denetim için kaydı korur.',
-          '/n8n — n8n bağlantı durumunu kontrol eder.',
-          '/yt-viral <konu> — YouTube Shorts otomasyonunu başlatır.',
-          '/video-uret <id> — Belirtilen onaylı içeriğin videosunu üretir.',
-          '/paylas-icerik <konu> — İçeriği Mira’nın üslubuyla hazırlar ve taslak olarak kaydeder.',
-          '/oku <dosya> — GitHub reposundaki dosyayı okur.',
         ].join('\\n'),
         emotion: 'focused',
       });
@@ -1014,7 +1008,7 @@ export async function POST(req: Request) {
     // OAuth being connected is not enough: explicitly fetch the catalog and pass its
     // verified contents into the model so Mira can answer from the real files.
     const asksAboutDriveFiles =
-      /(?:google\s*drive|\bdrive\b|baslik\.md|başlık\s+dosyası|yayın\s+planı|yayin\s+plani|video\s+dosyaları|video\s+dosyalari|kalan\s+videolar|shorts\s+dosyaları|shorts\s+dosyalari)/iu.test(message);
+      /(?:google\s*drive|\bdrive\b|baslik\.md|başlık\s+dosyası|yayın\s+planı|yayin\s+plani|video\s+dosyaları|video\s+dosyalari|kalan\s+videolar|shorts\s+dosyaları|shorts\s+dosyalari|içerik|icerik|senaryo|mp4|video\s+(?:üret|uret|bul|dosyaları|dosyalari)|başlık|baslik|taslak|konu\s+(?:üret|uret|bul))/iu.test(message);
 
     if (asksAboutDriveFiles) {
       try {

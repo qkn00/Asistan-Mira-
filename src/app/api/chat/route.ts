@@ -790,14 +790,14 @@ export async function POST(req: Request) {
           JSON.stringify(driveData.videos?.longVideos || []),
           "baslik.md tam metni:",
           driveData.documentText || "(Belge metni boş.)",
-        ].join("\\n");
+        ].join("\n");
 
         const driveResult = await think(
           message,
           history,
           "",
           "flirty",
-          `${memoryContext}\\n\\n${driveContext}`,
+          `${memoryContext}\n\n${driveContext}`,
           "",
           privateMode,
         );

@@ -297,8 +297,7 @@ export async function POST(req: Request) {
         const reason = error instanceof Error ? error.message : String(error);
         return NextResponse.json({
           reply: `❌ n8n Agent bağlantısı başarısız: ${reason.slice(0, 300)}`,
-          emotion: 'focused',
-        });
+          emotion: 'focused',        });
       }
     }
 
@@ -597,8 +596,7 @@ export async function POST(req: Request) {
                 cookie: req.headers.get('cookie') || '',
               },
               body: JSON.stringify({ id: contentId, action: 'approve_video' }),
-              cache: 'no-store',
-            });
+              cache: 'no-store',            });
             if (!reviewRes.ok) {
               const rData: unknown = await reviewRes.json().catch(() => null);
               const rErr = rData && typeof rData === 'object' && 'error' in rData ? String((rData as { error: unknown }).error) : `HTTP ${reviewRes.status}`;
@@ -856,13 +854,6 @@ export async function POST(req: Request) {
         if (wantsTwoScheduledUploads) {
           const scheduleText = [...history.map((item) => item.content), message].join("\\n");
           const explicitSlots = requestedScheduleSlots(scheduleText);
-          const slots = explicitSlots || nextAvailableShortSlots(youtubeData.videos || []);
-          if (!slots) {
-            return NextResponse.json({
-              reply: "Uygun iki yayın saati bulamadım. Mevcut yayın takvimini değiştirmedim ve hiçbir video yüklemedim.",
-              emotion: "focused",
-            });
-          }
           if (explicitSlots) {
             const occupiedTimes = new Set((youtubeData.videos || [])
               .map((video) => video.publishAt ? new Date(video.publishAt).getTime() : NaN)
@@ -897,7 +888,6 @@ export async function POST(req: Request) {
               emotion: "focused",
             });
           }
-
           const selectionPrompt = [
             "Sadece JSON döndür; açıklama, markdown çiti veya başka metin yazma.",
             "Gerçek YouTube kanalındaki mevcut videolar ile Google Drive katalogunu karşılaştır.",
@@ -1197,7 +1187,6 @@ export async function POST(req: Request) {
               source: "chat",
             },
           });
-
           return draft;
         });
 

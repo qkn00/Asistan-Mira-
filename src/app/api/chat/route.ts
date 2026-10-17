@@ -76,8 +76,97 @@ export async function POST(req: Request) {
     // Yardım ve sistem komutları
     const command = message.trim().split(/\s+/)[0].toLocaleLowerCase('tr-TR');
 
+    // /video <numara> and /drive-hazirla <numara>: import an existing Drive MP4 into Mira's server.
+    // This only prepares the asset; it never uploads to YouTube.
+    if (command === '/video' || command === '/drive-hazirla') {
+      const numberText = message.trim().split(/\\s+/)[1] || '';
+      const videoNumber = /^\\d{1,3}$/.test(numberText) ? Number(numberText) : 0;
+      if (!Number.isInteger(videoNumber) || videoNumber < 1 || videoNumber > 999) {
+        return NextResponse.json({
+          reply: 'Kullanım: /video 11 — Drive klasöründeki video_11.mp4 dosyasını Mira sunucusuna hazırlar. YouTube’a yüklemez.',
+          emotion: 'focused',
+        });
+      }
+
+      try {
+        const origin = selfOrigin();
+        const catalogResponse = await fetchWithTimeoutMs(`${origin}/api/drive/catalog`, {
+          headers: { cookie: cookieHeader },
+          cache: 'no-store',
+        }, 45000);
+        const catalog = await catalogResponse.json().catch(() => ({})) as {
+          ok?: boolean;
+          error?: string;
+          videos?: { shorts?: Array<{ id: string; name: string }> };
+        };
+        if (!catalogResponse.ok || !catalog.ok) {
+          return NextResponse.json({
+            reply: `Drive kataloğu okunamadı; aktarım başlatılmadı. HTTP ${catalogResponse.status}. ${catalog.error || 'Gerçek dosya listesi alınamadı.'}`,
+            emotion: 'focused',
+          }, { status: catalogResponse.status >= 400 ? catalogResponse.status : 502 });
+        }
+
+        const expectedName = `video_${videoNumber}.mp4`;
+        const driveFile = (catalog.videos?.shorts || []).find((file) => file.name.toLocaleLowerCase('tr-TR') === expectedName);
+        if (!driveFile?.id) {
+          const available = (catalog.videos?.shorts || [])
+            .map((file) => file.name.match(/^video_(\\d+)\\.mp4$/i)?.[1])
+            .filter((value): value is string => Boolean(value))
+            .sort((a, b) => Number(a) - Number(b));
+          return NextResponse.json({
+            reply: `Drive klasöründe ${expectedName} bulunamadı. Mevcut Shorts numaraları: ${available.join(', ') || 'yok'}. Hiçbir dosya aktarılmadı.`,
+            emotion: 'focused',
+          });
+        }
+
+        const prepareResponse = await fetchWithTimeoutMs(`${origin}/api/drive/prepare-upload`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            cookie: cookieHeader,
+          },
+          body: JSON.stringify({ fileId: driveFile.id, videoNumber }),
+          cache: 'no-store',
+        }, VIDEO_TIMEOUT_MS);
+        const prepared = await prepareResponse.json().catch(() => ({})) as {
+          ok?: boolean;
+          imported?: boolean;
+          alreadyImported?: boolean;
+          contentId?: number;
+          title?: string;
+          fileName?: string;
+          bytes?: number;
+          message?: string;
+          error?: string;
+        };
+
+        if (!prepareResponse.ok || !prepared.ok) {
+          return NextResponse.json({
+            reply: `Drive dosyası bulundu (${expectedName}), ancak sunucuya aktarım başarısız oldu. HTTP ${prepareResponse.status}; hata: ${prepared.error || 'API sonucu doğrulanamadı'}. YouTube’a yükleme yapılmadı.`,
+            emotion: 'focused',
+          }, { status: prepareResponse.status >= 400 ? prepareResponse.status : 502 });
+        }
+
+        const size = typeof prepared.bytes === 'number' ? ` Dosya boyutu: ${(prepared.bytes / (1024 * 1024)).toFixed(2)} MB.` : '';
+        const statusText = prepared.alreadyImported
+          ? 'Bu dosya daha önce Mira sunucusuna aktarılmış.'
+          : 'Drive dosyası Mira sunucusuna aktarıldı.';
+        return NextResponse.json({
+          reply: `✅ ${statusText}\\nDosya: ${prepared.fileName || expectedName}\\nDrive dosya kimliği: ${driveFile.id}\\nİçerik kaydı: #${prepared.contentId ?? 'bilinmiyor'}\\nBaşlık: ${prepared.title || 'baslik.md kaydı'}.${size}\\nYouTube’a yüklenmedi; ayrıca açık onay gerekiyor.`,
+          emotion: 'focused',
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.error('[Chat] Drive video preparation failed:', reason);
+        return NextResponse.json({
+          reply: `Drive video hazırlığı başarısız oldu: ${reason.slice(0, 250)}. YouTube’a yükleme yapılmadı.`,
+          emotion: 'focused',
+        }, { status: 502 });
+      }
+    }
+
     // Eski manuel içerik giriş yolları kapalı: yeni içerik yalnızca Google Drive kaynağından alınır.
-    if (command === '/paylas-icerik' || command === '/yt-viral' || command === '/video-uret' || command === '/video') {
+    if (command === '/paylas-icerik' || command === '/yt-viral' || command === '/video-uret') {
       return NextResponse.json({
         reply: "Eski manuel içerik/taslak akışı kapatıldı. Yeni içerikler için tek kaynak Google Drive. Drive kataloğu okunmadan eski taslak veya elle girilen konudan üretim başlatmıyorum.",
         emotion: 'focused',

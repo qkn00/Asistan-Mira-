@@ -15,7 +15,6 @@ import { isMiraSessionCookie } from "@/lib/mira-auth";
 import { requestedScheduleSlots } from "@/lib/youtube-schedule-slots";
 
 const PRIVATE_MODE_COOKIE = 'mira_private_mode';
-const ENTRY_COOKIE = 'mira_entry';
 
 const EXTERNAL_TIMEOUT_MS = 8000;
 const VIDEO_TIMEOUT_MS = 180000;

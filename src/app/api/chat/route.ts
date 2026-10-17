@@ -76,6 +76,14 @@ export async function POST(req: Request) {
     // Yardım ve sistem komutları
     const command = message.trim().split(/\s+/)[0].toLocaleLowerCase('tr-TR');
 
+    // Eski manuel içerik giriş yolları kapalı: yeni içerik yalnızca Google Drive kaynağından alınır.
+    if (command === '/paylas-icerik' || command === '/yt-viral' || command === '/video-uret' || command === '/video') {
+      return NextResponse.json({
+        reply: "Eski manuel içerik/taslak akışı kapatıldı. Yeni içerikler için tek kaynak Google Drive. Drive kataloğu okunmadan eski taslak veya elle girilen konudan üretim başlatmıyorum.",
+        emotion: 'focused',
+      }, { status: 410 });
+    }
+
     // Hafıza onay akışı: bekleyen kayıt/silme işlemleri yalnızca açık onayla uygulanır.
     // A broken/missing operations table must not take ordinary chat offline.
     // Approval commands still require the database and will report their own failure.

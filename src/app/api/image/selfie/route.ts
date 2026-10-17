@@ -6,7 +6,6 @@ import { MIRA_AVATAR } from "@/lib/mira-avatar";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const ENTRY_COOKIE = "mira_entry";
 const PRIVATE_MODE_COOKIE = "mira_private_mode";
 const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 const HF_SPACE = "Qwen/Qwen-Image-2.1";

@@ -771,17 +771,17 @@ export async function POST(req: Request) {
     }
 
     // Drive-only requests must call the real Drive API; never let the LLM invent a catalogue.
-    const mentionsDrive = /(?:google\\s*drive|\\bdrive\\b|baslik\\.md|video_\\d+\\.mp4|uzun_video_\\d+\\.mp4)/iu.test(message);
-    const mentionsYoutubeOrChannel = /(?:youtube|\\bkanal\\b|yayınlanmış videolar|yüklenmiş videolar)/iu.test(message);
+    const mentionsDrive = /(?:google\s*drive|\bdrive\b|baslik\.md|video_\d+\.mp4|uzun_video_\d+\.mp4)/iu.test(message);
+    const mentionsYoutubeOrChannel = /(?:youtube|\bkanal\b|yayınlanmış videolar|yüklenmiş videolar)/iu.test(message);
     const asksForDriveAction = /(?:dosya|katalog|liste|başlık|başlik|baslik|video|mp4|klasör|klasor|içerik|icerik|kontrol|incele|bak|say|doğrula|dogrula|sağlam|saglam|indir|oku)/iu.test(message);
     const asksForDriveOnlyAudit = mentionsDrive && asksForDriveAction && !mentionsYoutubeOrChannel;
 
     if (asksForDriveOnlyAudit) {
       try {
         const origin = selfOrigin();
-        const fileMatch = message.match(/\\b((?:video|uzun_video)_\\d+\\.mp4)\\b/iu);
+        const fileMatch = message.match(/\b((?:video|uzun_video)_\d+\.mp4)\b/iu);
         const asksForIntegrityTest = Boolean(fileMatch) && /(?:sağlam|saglam|geçerli|gecerli|doğrula|dogrula|indir|test|kontrol|çalışıyor|calisiyor|bozuk|açılıyor|aciliyor)/iu.test(message);
-        const asksForTitleDocument = /(?:baslik\\.md|başlık|başlik|başlıkları|başliklari|konu listesi|başlık listesi)/iu.test(message);
+        const asksForTitleDocument = /(?:baslik\.md|başlık|başlik|başlıkları|başliklari|konu listesi|başlık listesi)/iu.test(message);
 
         if (asksForIntegrityTest && fileMatch) {
           const fileName = fileMatch[1];
@@ -826,24 +826,24 @@ export async function POST(req: Request) {
         if (endpoint === "/api/drive/catalog") {
           const shorts = data.videos?.shorts || [];
           const longVideos = data.videos?.longVideos || [];
-          const titles = (data.titleCandidates || []).map((item) => `L${item.line}: ${item.title}`).join("\\n");
+          const titles = (data.titleCandidates || []).map((item) => `L${item.line}: ${item.title}`).join("\n");
           const body = [
             `Drive API'den canlı okuma tamamlandı. Dosya: ${data.document?.name || "baslik.md"}; metin uzunluğu: ${data.document?.characters ?? 0} karakter.`,
             `Video listesi: ${shorts.length} Shorts, ${longVideos.length} uzun video.`,
             shorts.length ? `Shorts: ${shorts.map((item) => item.name).join(", ")}` : "Shorts dosyası bulunamadı.",
             longVideos.length ? `Uzun videolar: ${longVideos.map((item) => item.name).join(", ")}` : "Uzun video dosyası bulunamadı.",
-            titles ? `baslik.md başlıkları:\\n${titles}` : "baslik.md içinde başlık/listelenen madde bulunamadı.",
+            titles ? `baslik.md başlıkları:\n${titles}` : "baslik.md içinde başlık/listelenen madde bulunamadı.",
             "Not: Bu işlem dosyaları listeledi ve baslik.md dosyasını okudu; MP4 dosyalarının sağlamlığı ayrıca test edilmediyse doğrulanmış sayılmaz."
-          ].join("\\n\\n");
+          ].join("\n\n");
           return NextResponse.json({ reply: body, emotion: "focused" });
         }
 
         const files = data.files || [];
-        const shorts = files.filter((item) => /^video_\\d+\\.mp4$/iu.test(item.name))
-          .sort((a, b) => Number(a.name.match(/\\d+/u)?.[0] || 0) - Number(b.name.match(/\\d+/u)?.[0] || 0));
-        const longVideos = files.filter((item) => /^uzun_video_\\d+\\.mp4$/iu.test(item.name))
-          .sort((a, b) => Number(a.name.match(/\\d+/u)?.[0] || 0) - Number(b.name.match(/\\d+/u)?.[0] || 0));
-        const other = files.filter((item) => !/^(?:video|uzun_video)_\\d+\\.mp4$/iu.test(item.name));
+        const shorts = files.filter((item) => /^video_\d+\.mp4$/iu.test(item.name))
+          .sort((a, b) => Number(a.name.match(/\d+/u)?.[0] || 0) - Number(b.name.match(/\d+/u)?.[0] || 0));
+        const longVideos = files.filter((item) => /^uzun_video_\d+\.mp4$/iu.test(item.name))
+          .sort((a, b) => Number(a.name.match(/\d+/u)?.[0] || 0) - Number(b.name.match(/\d+/u)?.[0] || 0));
+        const other = files.filter((item) => !/^(?:video|uzun_video)_\d+\.mp4$/iu.test(item.name));
         const format = (item: { name: string; size?: string }) => `${item.name} (${item.size ? `${Number(item.size).toLocaleString("tr-TR")} bayt` : "boyut bilgisi yok"})`;
         return NextResponse.json({
           reply: [
@@ -852,7 +852,7 @@ export async function POST(req: Request) {
             `Uzun videolar (${longVideos.length}): ${longVideos.length ? longVideos.map(format).join(", ") : "bulunamadı"}`,
             other.length ? `Diğer dosyalar: ${other.map(format).join(", ")}` : "Diğer dosya yok.",
             "Not: Bu, Drive listesinin canlı okunduğunu doğrular; video dosyalarının indirilebilir/sağlam olduğunu ayrıca test etmeden iddia etmiyorum."
-          ].join("\\n\\n"),
+          ].join("\n\n"),
           emotion: "focused",
         });
       } catch (error) {

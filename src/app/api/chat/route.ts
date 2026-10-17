@@ -788,7 +788,7 @@ export async function POST(req: Request) {
           "GÜVENLİK: Bu denetim salt okunurdur. Hiçbir video yükleme, planlama, yorum ekleme/sabitleme veya mevcut yayın takvimini değiştirme. Kullanıcı istemedikçe bu denetim yalnızca rapor üretir.",
         ].join("\n");
 
-        const auditResult = await think(message, history, "", "focused", `${memoryContext}\n\n${auditContext}`, "", privateMode);
+        const auditResult = await think(message, history, "", "flirty", `${memoryContext}\n\n${auditContext}`, "", privateMode);
         return NextResponse.json({
           reply: auditResult.reply || "Kanal verilerini aldım ancak güvenilir bir analiz oluşturamadım.",
           emotion: auditResult.emotion || "focused",

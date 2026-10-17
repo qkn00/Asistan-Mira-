@@ -9,6 +9,7 @@ import { remember } from '@/lib/memory';
 import { NextResponse } from 'next/server';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { isPermanentlyDeletedTopic } from "@/lib/deleted-topics";
+import { isYoutubeScheduleCancellation, isYoutubeScheduleConfirmation } from "@/lib/youtube-schedule-approval";
 
 const PRIVATE_MODE_COOKIE = 'mira_private_mode';
 const ENTRY_COOKIE = 'mira_entry';
@@ -135,8 +136,8 @@ export async function POST(req: Request) {
     }
 
     // YouTube scheduling is a two-step action: persist an exact preview, then require a separate explicit confirmation.
-    const scheduleConfirmation = /^(?:planı onayla|plani onayla|yüklemeyi onayla|yuklemeyi onayla|onaylıyorum|onayliyorum)$/iu.test(message.trim());
-    const scheduleRejection = /^(?:planı iptal et|plani iptal et|iptal et|vazgeç|vazgec)$/iu.test(message.trim());
+    const scheduleConfirmation = isYoutubeScheduleConfirmation(message);
+    const scheduleRejection = isYoutubeScheduleCancellation(message);
     if (scheduleConfirmation || scheduleRejection) {
       try {
         const [pendingSchedule] = await db.select().from(operations)

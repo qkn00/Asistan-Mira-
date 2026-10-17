@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const ENTRY_COOKIE = "mira_entry";
 
 type PixabayHit = {
   id: number;

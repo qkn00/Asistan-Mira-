@@ -1,3 +1,4 @@
+import { isMiraSessionCookie } from "@/lib/mira-auth";
 import { NextResponse } from "next/server";
 import { Client, handle_file } from "@gradio/client";
 import { MIRA_AVATAR } from "@/lib/mira-avatar";
@@ -67,7 +68,7 @@ function findImageUrl(value: unknown, depth = 0): string | null {
 export async function POST(req: Request) {
   try {
     const cookies = (req.headers.get("cookie") ?? "").split(";").map((part) => part.trim());
-    const authenticated = cookies.includes(`${ENTRY_COOKIE}=1`);
+    const authenticated = isMiraSessionCookie(cookies);
     const privateMode = cookies.includes(`${PRIVATE_MODE_COOKIE}=1`);
 
     if (!authenticated) {

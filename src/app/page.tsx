@@ -829,11 +829,20 @@ export default function Home() {
         if (!res.ok) throw new Error(`Sohbet geçmişi alınamadı (HTTP ${res.status}).`);
         const data = await res.json();
         if (active && Array.isArray(data?.messages)) {
-          const restored = data.messages.filter((item: unknown): item is Message => {
+          const isMessage = (item: unknown): item is Message => {
             if (!item || typeof item !== 'object') return false;
             const candidate = item as Partial<Message>;
             return (candidate.role === 'user' || candidate.role === 'assistant') && typeof candidate.content === 'string';
-          });
+          };
+          let cached: Message[] = [];
+          try {
+            const stored = localStorage.getItem('mira_chat_history_v1');
+            const parsed: unknown = stored ? JSON.parse(stored) : [];
+            if (Array.isArray(parsed)) cached = parsed.filter(isMessage);
+          } catch {
+            // A broken local cache should not prevent restoring database history.
+          }
+          const restored = cached.length > 0 ? cached : data.messages.filter(isMessage);
           setMessages(restored);
         }
       })
@@ -845,6 +854,15 @@ export default function Home() {
     void loadManualQueue();
     return () => { active = false; };
   }, [entered]);
+
+  useEffect(() => {
+    if (!historyLoaded) return;
+    try {
+      localStorage.setItem('mira_chat_history_v1', JSON.stringify(messages.slice(-200)));
+    } catch (error) {
+      console.error('Sohbet geçmişi bu cihazda saklanamadı:', error);
+    }
+  }, [messages, historyLoaded]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
